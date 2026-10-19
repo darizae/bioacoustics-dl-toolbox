@@ -11,6 +11,7 @@ Key changes:
 from __future__ import annotations
 
 import copy
+import importlib
 import logging
 import math
 import operator
@@ -27,8 +28,6 @@ from bioacoustics_dl_toolbox.metrics.confusion import ConfusionMeter
 from bioacoustics_dl_toolbox.metrics.core import Mean, MetricBase, Sum
 from bioacoustics_dl_toolbox.training.checkpoints import CheckpointHandler
 from bioacoustics_dl_toolbox.training.early_stopping import EarlyStoppingCriterion
-from bioacoustics_dl_toolbox.visualization.image import prepare_img
-from bioacoustics_dl_toolbox.visualization.plotting import confusion_matrix_fig, roc_fig
 
 try:
     from tensorboardX import SummaryWriter
@@ -452,6 +451,9 @@ class Trainer:
     ) -> None:
         if self.writer is None:
             return
+        prepare_img = importlib.import_module(
+            "bioacoustics_dl_toolbox.visualization.image"
+        ).prepare_img
         with torch.no_grad():
             if file_names is not None:
                 if isinstance(file_names, torch.Tensor):
@@ -551,11 +553,12 @@ class Trainer:
     ) -> None:
         if self.writer is None:
             return
+        plotting = importlib.import_module("bioacoustics_dl_toolbox.visualization.plotting")
         with torch.no_grad():
             if auc is not None:
                 auc_val, tpr, fpr = auc.value()
                 phase_prefix = phase + "_" if phase else ""
-                fig = roc_fig(tpr, fpr, auc_val)
+                fig = plotting.roc_fig(tpr, fpr, auc_val)
                 self.writer.add_figure(phase_prefix + "roc/roc", fig, epoch)
 
             if confusion is not None:
@@ -567,7 +570,7 @@ class Trainer:
                 ]
                 phase_prefix = phase + "_" if phase else ""
 
-                fig_norm = confusion_matrix_fig(
+                fig_norm = plotting.confusion_matrix_fig(
                     confusion_matrix_norm, label_str=label_str, numbering=True
                 )
                 self.writer.add_figure(
@@ -576,7 +579,7 @@ class Trainer:
                     epoch,
                 )
 
-                fig_norm_no_num = confusion_matrix_fig(
+                fig_norm_no_num = plotting.confusion_matrix_fig(
                     confusion_matrix_norm, label_str=label_str, numbering=False
                 )
                 self.writer.add_figure(
@@ -585,7 +588,7 @@ class Trainer:
                     epoch,
                 )
 
-                fig_raw = confusion_matrix_fig(
+                fig_raw = plotting.confusion_matrix_fig(
                     confusion_matrix_raw, label_str=label_str, numbering=True
                 )
                 self.writer.add_figure(

@@ -49,6 +49,12 @@ def test_top_level_import_does_not_require_optional_rf_stack():
     assert "librosa" not in sys.modules
 
 
+def test_headless_trainer_import_does_not_load_visualization_stack():
+    import bioacoustics_dl_toolbox.training.trainer  # noqa: F401
+
+    assert "torchvision" not in sys.modules
+
+
 def test_sequence_sampler_is_spawn_picklable():
     sampler = pickle.loads(pickle.dumps(PaddedSubsequenceSampler(16, random=False)))
     assert sampler.sequence_length == 16

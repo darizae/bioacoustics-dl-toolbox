@@ -24,6 +24,12 @@ RF feature extraction is optional:
 python -m pip install -e '/path/to/bioacoustics-dl-toolbox[rf]'
 ```
 
+TensorBoard summaries and plotting are optional:
+
+```bash
+python -m pip install -e '/path/to/bioacoustics-dl-toolbox[summaries,visualization]'
+```
+
 ## Checkpoint contract
 
 `save_model` writes the established six-key `trained_model.pt` payload:

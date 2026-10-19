@@ -4,25 +4,23 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bioacoustics-dl-toolbox"
-version = "0.1.0"
+version = "0.1.1"
 description = "Reusable PyTorch components for bioacoustic classification"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 license = "GPL-3.0-only"
 dependencies = [
-  "matplotlib>=3.8,<4",
   "numpy>=1.26,<3",
-  "pillow>=10,<13",
   "resampy>=0.4,<1",
   "scipy>=1.11,<2",
   "soundfile>=0.12,<1",
   "torch>=2,<3",
-  "torchvision>=0.15,<1",
 ]
 
 [project.optional-dependencies]
 rf = ["librosa>=0.10,<1"]
 summaries = ["tensorboardX>=2.6,<3"]
+visualization = ["matplotlib>=3.8,<4", "pillow>=10,<13", "torchvision>=0.15,<1"]
 test = ["pytest>=8.4,<10", "ruff>=0.14,<1"]
 
 [project.urls]
