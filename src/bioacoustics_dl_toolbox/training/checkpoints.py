@@ -79,9 +79,7 @@ class CheckpointHandler:
                     ),
                 )
                 if self._logger is not None:
-                    self._logger.debug(
-                        "Writing checkpoint to {}".format(checkpoint_name)
-                    )
+                    self._logger.debug("Writing checkpoint to {}".format(checkpoint_name))
                 torch.save(checkpoint_dict, checkpoint_name)
                 checkpoints = glob.glob(
                     os.path.join(self.checkpoint_dir, self.prefix + "*.checkpoint")
@@ -108,19 +106,17 @@ class CheckpointHandler:
         """Read the most recent checkpoint, or ``None`` if none exists."""
         if self.checkpoint_dir is None:
             return None
-        checkpoints = glob.glob(
-            os.path.join(self.checkpoint_dir, self.prefix + "*.checkpoint")
-        )
+        checkpoints = glob.glob(os.path.join(self.checkpoint_dir, self.prefix + "*.checkpoint"))
         if len(checkpoints) == 0:
             if self._logger is not None:
-                self._logger.info(
-                    "No checkpoints found in {}".format(self.checkpoint_dir)
-                )
+                self._logger.info("No checkpoints found in {}".format(self.checkpoint_dir))
             return None
         checkpoints.sort()
         if self._logger is not None:
             self._logger.info("Restoring checkpoint {}".format(checkpoints[-1]))
-        return torch.load(checkpoints[-1], map_location="cpu")  # type: ignore[no-any-return]
+        return torch.load(  # type: ignore[no-any-return]
+            checkpoints[-1], map_location="cpu", weights_only=True
+        )
 
     def _shutdown_worker(self) -> None:
         self._should_stop.set()
@@ -181,4 +177,4 @@ def load_model(
     the encoder and classifier from the stored configs and loading
     state dicts.
     """
-    return torch.load(str(path), map_location="cpu")  # type: ignore[no-any-return]
+    return torch.load(str(path), map_location="cpu", weights_only=True)  # type: ignore[no-any-return]

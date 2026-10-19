@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from typing import Final, Mapping
 
 import librosa
@@ -24,7 +23,9 @@ _ROBUST_SCHEMA: Final[tuple[str, ...]] = (
 )
 
 
-def _slice_signal(signal: NDArray[np.float32], sample_rate: int, start_s: float, end_s: float) -> NDArray[np.float32]:
+def _slice_signal(
+    signal: NDArray[np.float32], sample_rate: int, start_s: float, end_s: float
+) -> NDArray[np.float32]:
     start_index = max(0, int(round(start_s * sample_rate)))
     end_index = min(int(signal.shape[0]), int(round(end_s * sample_rate)))
     if end_index <= start_index:
@@ -32,8 +33,14 @@ def _slice_signal(signal: NDArray[np.float32], sample_rate: int, start_s: float,
     return signal[start_index:end_index]
 
 
-def _band_slice(frequencies_hz: NDArray[np.float64], low_hz: float | None, high_hz: float | None) -> slice:
-    low_index = 0 if low_hz is None else int(np.searchsorted(frequencies_hz, max(0.0, float(low_hz)), side="left"))
+def _band_slice(
+    frequencies_hz: NDArray[np.float64], low_hz: float | None, high_hz: float | None
+) -> slice:
+    low_index = (
+        0
+        if low_hz is None
+        else int(np.searchsorted(frequencies_hz, max(0.0, float(low_hz)), side="left"))
+    )
     if high_hz is None or high_hz <= 0:
         high_index = int(frequencies_hz.shape[0])
     else:
@@ -44,7 +51,9 @@ def _band_slice(frequencies_hz: NDArray[np.float64], low_hz: float | None, high_
     return slice(low_index, high_index)
 
 
-def _quantile_from_pdf(pdf: NDArray[np.float64], coordinates: NDArray[np.float64], quantile: float) -> float:
+def _quantile_from_pdf(
+    pdf: NDArray[np.float64], coordinates: NDArray[np.float64], quantile: float
+) -> float:
     clipped = np.clip(pdf, 0.0, np.inf)
     total = float(clipped.sum())
     if not np.isfinite(total) or total <= 0.0:
@@ -61,8 +70,12 @@ def _quantile_from_pdf(pdf: NDArray[np.float64], coordinates: NDArray[np.float64
 
     previous_cumulative = float(cumulative[index - 1])
     current_cumulative = float(cumulative[index])
-    weight_current = (quantile - previous_cumulative) / (current_cumulative - previous_cumulative + 1e-12)
-    return float((1.0 - weight_current) * coordinates[index - 1] + weight_current * coordinates[index])
+    weight_current = (quantile - previous_cumulative) / (
+        current_cumulative - previous_cumulative + 1e-12
+    )
+    return float(
+        (1.0 - weight_current) * coordinates[index - 1] + weight_current * coordinates[index]
+    )
 
 
 def _entropy_bits(probability: NDArray[np.float64]) -> float:
@@ -183,8 +196,12 @@ def _summarize_feature_matrix(
     features: dict[str, float] = {}
     for row_index in range(int(matrix.shape[0])):
         coefficient_index = row_index + 1
-        features["{} {:02d} mean".format(feature_prefix, coefficient_index)] = float(means[row_index])
-        features["{} {:02d} std".format(feature_prefix, coefficient_index)] = float(standard_deviations[row_index])
+        features["{} {:02d} mean".format(feature_prefix, coefficient_index)] = float(
+            means[row_index]
+        )
+        features["{} {:02d} std".format(feature_prefix, coefficient_index)] = float(
+            standard_deviations[row_index]
+        )
     return features
 
 

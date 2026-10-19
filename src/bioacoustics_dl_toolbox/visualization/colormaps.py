@@ -21,7 +21,7 @@ def _load_matplotlib_colormap(name: str) -> torch.Tensor:
 
 
 try:
-    import matplotlib
+    import matplotlib  # noqa: F401
 
     plasma_cm = _load_matplotlib_colormap("plasma")
     viridis_cm = _load_matplotlib_colormap("viridis")
@@ -30,9 +30,7 @@ except ImportError:
     viridis_cm = torch.rand(256, 3)
 
 
-def apply_cm(
-    x: torch.Tensor, cm: torch.Tensor, dim: int = 1
-) -> torch.Tensor:
+def apply_cm(x: torch.Tensor, cm: torch.Tensor, dim: int = 1) -> torch.Tensor:
     """Apply a colormap to a long tensor of indices in [0, 255]."""
     if x.dtype != torch.long:
         raise ValueError(

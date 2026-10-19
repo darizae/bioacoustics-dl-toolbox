@@ -42,9 +42,7 @@ class ConfusionMeter:
             target = np.asarray([target])
         assert np.ndim(output) == 1, "wrong output size (1D expected)"
         assert np.ndim(target) == 1, "wrong target size (1D expected)"
-        assert (
-            output.shape[0] == target.shape[0]
-        ), "number of outputs and targets does not match"
+        assert output.shape[0] == target.shape[0], "number of outputs and targets does not match"
         for output_val, target_val in zip(output, target):
             self.confusion[int(target_val)][int(output_val)] += 1
 

@@ -98,9 +98,9 @@ class Bottleneck(nn.Module):
 
         self.shortcut: nn.Module | None = None
         if upsample is not None or downsample is not None:
-            assert (
-                downsample is None or upsample is None
-            ), "Only can downsample (encoder) or upsample (decoder) using the shortcut"
+            assert downsample is None or upsample is None, (
+                "Only can downsample (encoder) or upsample (decoder) using the shortcut"
+            )
             self.shortcut = downsample if downsample is not None else upsample
 
         self.conv1 = nn.Conv2d(in_ch, mid_ch, kernel_size=1, bias=False)

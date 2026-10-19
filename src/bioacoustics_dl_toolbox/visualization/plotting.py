@@ -19,9 +19,7 @@ import torch
 matplotlib.use("Agg")
 
 
-def roc_fig(
-    tpr: np.ndarray, fpr: np.ndarray, auc: float
-) -> matplotlib.figure.Figure:
+def roc_fig(tpr: np.ndarray, fpr: np.ndarray, auc: float) -> matplotlib.figure.Figure:
     """Plot an ROC curve."""
     fig = plt.figure()
     plt.plot(fpr, tpr, label="AUC: {}".format(auc))

@@ -1,4 +1,4 @@
-"""Bioacoustics Deep Learning Toolbox — reusable building blocks for bioacoustics research."""
+"""Bioacoustics deep-learning building blocks."""
 
 from bioacoustics_dl_toolbox.config import (
     AugmentationConfig,
@@ -9,14 +9,6 @@ from bioacoustics_dl_toolbox.config import (
     SpectrogramConfig,
     TrainingConfig,
 )
-from bioacoustics_dl_toolbox.rf import (
-    RfClassifierProtocol,
-    align_features_to_schema,
-    compute_rf_features,
-    mfcc_feature_schema,
-    mfcc_summary,
-    raven_robust_features,
-)
 
 __all__ = [
     "AugmentationConfig",
@@ -26,10 +18,4 @@ __all__ = [
     "NormalizationConfig",
     "SpectrogramConfig",
     "TrainingConfig",
-    "RfClassifierProtocol",
-    "align_features_to_schema",
-    "compute_rf_features",
-    "mfcc_feature_schema",
-    "mfcc_summary",
-    "raven_robust_features",
 ]

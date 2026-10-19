@@ -15,11 +15,12 @@ class RfClassifierProtocol(Protocol):
     - Any compatible model object with predict_proba
     """
 
-    def predict_proba(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
-        ...
+    def predict_proba(self, x: NDArray[np.float64]) -> NDArray[np.float64]: ...
 
     @property
-    def feature_names_in_(self) -> NDArray[np.str_] | None:  # sklearn exposes this on many estimators
+    def feature_names_in_(
+        self,
+    ) -> NDArray[np.str_] | None:  # sklearn exposes this on many estimators
         ...
 
 

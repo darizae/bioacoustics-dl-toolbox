@@ -16,9 +16,7 @@ def _safe_div(numerator: torch.Tensor, denominator: torch.Tensor) -> torch.Tenso
     return torch.where(condition, result, torch.zeros_like(result))
 
 
-def _count_condition(
-    condition: torch.Tensor, weights: torch.Tensor | float | None
-) -> float:
+def _count_condition(condition: torch.Tensor, weights: torch.Tensor | float | None) -> float:
     """Count weighted true elements in a boolean condition tensor."""
     with torch.no_grad():
         if weights is not None:
@@ -59,9 +57,7 @@ class Sum(MetricBase):
     def __init__(self, device: torch.device | None = None) -> None:
         self.value = torch.zeros(1, device=device)
 
-    def update(
-        self, values: torch.Tensor, weights: torch.Tensor | None = None
-    ) -> None:
+    def update(self, values: torch.Tensor, weights: torch.Tensor | None = None) -> None:
         with torch.no_grad():
             if weights is not None:
                 values = torch.mul(values, weights)
@@ -77,9 +73,7 @@ class Max(MetricBase):
     def __init__(self, device: torch.device | None = None) -> None:
         self.value = torch.zeros(1, dtype=torch.float, device=device)
 
-    def update(
-        self, values: torch.Tensor, weights: torch.Tensor | None = None
-    ) -> None:
+    def update(self, values: torch.Tensor, weights: torch.Tensor | None = None) -> None:
         with torch.no_grad():
             if weights is not None:
                 values = torch.mul(values, weights)
@@ -98,9 +92,7 @@ class Mean(MetricBase):
         self.total = torch.zeros(1, dtype=torch.float, device=device)
         self.count = torch.zeros(1, dtype=torch.float, device=device)
 
-    def update(
-        self, values: torch.Tensor, weights: torch.Tensor | float | None = None
-    ) -> None:
+    def update(self, values: torch.Tensor, weights: torch.Tensor | float | None = None) -> None:
         with torch.no_grad():
             if weights is None:
                 num_values = float(values.numel())

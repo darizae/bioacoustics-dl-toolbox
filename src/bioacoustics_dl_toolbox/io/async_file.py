@@ -8,7 +8,6 @@ platforms the reader/writer falls back to synchronous I/O.
 
 from __future__ import annotations
 
-import os
 import platform
 import queue
 from typing import Any, Callable
@@ -93,6 +92,7 @@ class AsyncFileReader:
                 break
             except Exception:
                 import traceback
+
                 print(traceback.format_exc())
                 out_queue.put((file_name, None))  # type: ignore[possibly-undefined]
 
@@ -142,4 +142,5 @@ class AsyncFileWriter:
                 break
             except Exception:
                 import traceback
+
                 print(traceback.format_exc())

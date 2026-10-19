@@ -16,7 +16,7 @@ import math
 import operator
 import platform
 import time
-from typing import Any, Union
+from typing import Any, Callable
 
 import numpy as np
 import torch
@@ -105,7 +105,7 @@ class Trainer:
         self,
         train_loader: torch.utils.data.DataLoader,
         val_loader: torch.utils.data.DataLoader,
-        test_loader: torch.utils.data.DataLoader,
+        test_loader: torch.utils.data.DataLoader | None,
         loss_fn: nn.Module,
         optimizer: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler._LRScheduler,
@@ -117,11 +117,15 @@ class Trainer:
         val_metric: str = "loss",
         val_metric_mode: str = "min",
         start_epoch: int = 0,
+        checkpoint: Callable[[], None] | None = None,
+        epoch_callback: Callable[[int, int, str], None] | None = None,
     ) -> nn.Module:
-        """Run the full train → validate → test pipeline.
+        """Run train → validate and an optional final test pass.
 
         Returns the model loaded with the best validation weights.
         """
+        checkpoint = checkpoint or (lambda: None)
+        epoch_callback = epoch_callback or (lambda _current, _total, _phase: None)
         self.logger.info("Init model on device '{}'".format(device))
         self.model = self.model.to(device)
         self.class_dist_dict = train_loader.dataset.class_dist_dict  # type: ignore[union-attr]
@@ -132,30 +136,28 @@ class Trainer:
         patience_stopping = math.ceil(patience_early_stopping / val_interval)
         patience_stopping = int(max(1, patience_stopping))
         early_stopping = EarlyStoppingCriterion(
-            mode=val_metric_mode, patience=patience_stopping  # type: ignore[arg-type]
+            mode=val_metric_mode,
+            patience=patience_stopping,  # type: ignore[arg-type]
         )
 
         if not self.start_scratch and self.checkpoint_handler is not None:
-            checkpoint = self.checkpoint_handler.read_latest()
-            if checkpoint is not None:
+            saved_checkpoint = self.checkpoint_handler.read_latest()
+            if saved_checkpoint is not None:
                 try:
                     try:
-                        self.model.load_state_dict(checkpoint["modelState"])
+                        self.model.load_state_dict(saved_checkpoint["modelState"])
                     except RuntimeError as e:
                         self.logger.error(
-                            "Failed to restore checkpoint: "
-                            "Checkpoint has different parameters"
+                            "Failed to restore checkpoint: Checkpoint has different parameters"
                         )
                         self.logger.error(str(e))
-                        raise SystemExit
-                    optimizer.load_state_dict(checkpoint["trainState"]["optState"])
-                    start_epoch = checkpoint["trainState"]["epoch"] + 1
-                    best_metric = checkpoint["trainState"]["best_metric"]
-                    best_model = checkpoint["trainState"]["best_model"]
-                    early_stopping.load_state_dict(
-                        checkpoint["trainState"]["earlyStopping"]
-                    )
-                    scheduler.load_state_dict(checkpoint["trainState"]["scheduler"])
+                        raise
+                    optimizer.load_state_dict(saved_checkpoint["trainState"]["optState"])
+                    start_epoch = saved_checkpoint["trainState"]["epoch"] + 1
+                    best_metric = saved_checkpoint["trainState"]["best_metric"]
+                    best_model = saved_checkpoint["trainState"]["best_model"]
+                    early_stopping.load_state_dict(saved_checkpoint["trainState"]["earlyStopping"])
+                    scheduler.load_state_dict(saved_checkpoint["trainState"]["scheduler"])
                     self.logger.info("Resuming with epoch {}".format(start_epoch))
                 except KeyError:
                     self.logger.error("Failed to restore checkpoint")
@@ -169,13 +171,22 @@ class Trainer:
             val_comp = operator.gt if val_metric_mode == "max" else operator.lt
 
             for epoch in range(start_epoch, n_epochs):
+                checkpoint()
                 self._train_epoch(
-                    epoch, train_loader, loss_fn, optimizer, metrics, device
+                    epoch, train_loader, loss_fn, optimizer, metrics, device, checkpoint
                 )
+                epoch_callback(epoch + 1, n_epochs, "train")
                 if epoch % val_interval == 0 or epoch == n_epochs - 1:
                     val_loss = self._test_epoch(
-                        epoch, val_loader, loss_fn, metrics, device, phase="val"
+                        epoch,
+                        val_loader,
+                        loss_fn,
+                        metrics,
+                        device,
+                        phase="val",
+                        checkpoint=checkpoint,
                     )
+                    epoch_callback(epoch + 1, n_epochs, "val")
                     if val_metric == "loss":
                         val_result = val_loss
                     else:
@@ -215,25 +226,32 @@ class Trainer:
 
             self.logger.warning(traceback.format_exc())
             self.logger.warning("Aborting...")
-            raise SystemExit
+            raise
 
         self.model.load_state_dict(best_model)
-        final_loss = self._test_epoch(
-            0, test_loader, loss_fn, metrics, device, phase="test"
-        )
-        if val_metric == "loss":
-            final_metric = final_loss
-        else:
-            final_metric = metrics[val_metric].get()  # type: ignore[index]
+        final_metric = None
+        if test_loader is not None:
+            final_loss = self._test_epoch(
+                0,
+                test_loader,
+                loss_fn,
+                metrics,
+                device,
+                phase="test",
+                checkpoint=checkpoint,
+            )
+            if val_metric == "loss":
+                final_metric = final_loss
+            else:
+                final_metric = metrics[val_metric].get()  # type: ignore[index]
 
         time_elapsed = time.time() - since
         self.logger.info(
-            "Training complete in {:.0f}m {:.0f}s".format(
-                time_elapsed // 60, time_elapsed % 60
-            )
+            "Training complete in {:.0f}m {:.0f}s".format(time_elapsed // 60, time_elapsed % 60)
         )
         self.logger.info("Best val metric: {:4f}".format(best_metric))
-        self.logger.info("Final test metric: {:4f}".format(final_metric))
+        if final_metric is not None:
+            self.logger.info("Final test metric: {:4f}".format(final_metric))
 
         return self.model
 
@@ -245,6 +263,7 @@ class Trainer:
         optimizer: torch.optim.Optimizer,
         metrics: dict[str, MetricBase] | list[MetricBase],
         device: torch.device,
+        checkpoint: Callable[[], None],
     ) -> float:
         self.logger.debug("train|{}|start".format(epoch))
         self._reset_metrics(metrics, device)
@@ -264,6 +283,7 @@ class Trainer:
             confusion = ConfusionMeter(n_categories=num_classes)
 
         for i, (features, label) in enumerate(train_loader):
+            checkpoint()
             features = features.to(device)
             call_label: torch.Tensor | None = None
             if "call" in label:
@@ -311,9 +331,7 @@ class Trainer:
         )
 
         if call_label is not None:
-            self._write_classification_summaries(
-                auc, confusion, train_loader, epoch, "train"
-            )
+            self._write_classification_summaries(auc, confusion, train_loader, epoch, "train")
 
         if self.writer is not None:
             self.writer.flush()
@@ -327,7 +345,9 @@ class Trainer:
         metrics: dict[str, MetricBase] | list[MetricBase],
         device: torch.device,
         phase: str = "val",
+        checkpoint: Callable[[], None] | None = None,
     ) -> float:
+        checkpoint = checkpoint or (lambda: None)
         self.logger.debug("{}|{}|start".format(phase, epoch))
         self.model.eval()
 
@@ -347,16 +367,13 @@ class Trainer:
                 confusion = ConfusionMeter(n_categories=num_classes)
 
             for i, (features, label) in enumerate(test_loader):
+                checkpoint()
                 features = features.to(device)
                 call_label: torch.Tensor | None = None
                 if "call" in label:
-                    call_label = label["call"].to(
-                        device, non_blocking=True, dtype=torch.int64
-                    )
+                    call_label = label["call"].to(device, non_blocking=True, dtype=torch.int64)
 
-                data_loading_time.update(
-                    torch.Tensor([(time.time() - start_data_loading)])
-                )
+                data_loading_time.update(torch.Tensor([(time.time() - start_data_loading)]))
 
                 output = self.model(features)
                 loss = loss_fn(output, call_label)
@@ -393,9 +410,7 @@ class Trainer:
         )
 
         if call_label is not None:
-            self._write_classification_summaries(
-                auc, confusion, test_loader, epoch, phase
-            )
+            self._write_classification_summaries(auc, confusion, test_loader, epoch, phase)
 
         if self.writer is not None:
             self.writer.flush()
@@ -503,16 +518,12 @@ class Trainer:
             if isinstance(metrics, dict):
                 for name, metric in metrics.items():
                     if self.writer is not None:
-                        self.writer.add_scalar(
-                            phase + "/" + name, metric.get(), epoch
-                        )
+                        self.writer.add_scalar(phase + "/" + name, metric.get(), epoch)
                     log_str += "|{}:{:0.3f}".format(name, metric.get())
             else:
                 for i, metric in enumerate(metrics):
                     if self.writer is not None:
-                        self.writer.add_scalar(
-                            phase + "/metric_" + str(i), metric.get(), epoch
-                        )
+                        self.writer.add_scalar(phase + "/metric_" + str(i), metric.get(), epoch)
                     log_str += "|m_{}:{:0.3f}".format(i, metric.get())
 
             if lr is not None:
@@ -526,9 +537,7 @@ class Trainer:
                 log_str += "|t:{:0.1f}".format(epoch_time)
 
             if data_loading_time is not None and self.writer is not None:
-                self.writer.add_scalar(
-                    phase + "/data_loading_time", data_loading_time, epoch
-                )
+                self.writer.add_scalar(phase + "/data_loading_time", data_loading_time, epoch)
 
             self.logger.info(log_str)
 

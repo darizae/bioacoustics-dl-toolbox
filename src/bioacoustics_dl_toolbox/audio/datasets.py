@@ -17,6 +17,7 @@ import os
 import pathlib
 import random
 from collections import defaultdict
+from functools import partial
 from math import ceil
 from typing import Any, Callable, Dict, Iterable, List, Protocol
 
@@ -42,11 +43,11 @@ logger = logging.getLogger(__name__)
 # Label extraction protocol
 # ---------------------------------------------------------------------------
 
+
 class LabelExtractor(Protocol):
     """Protocol for extracting a class label from a file path."""
 
-    def __call__(self, file_path: str) -> str:
-        ...
+    def __call__(self, file_path: str) -> str: ...
 
 
 class FilenamePrefixLabelExtractor:
@@ -65,6 +66,7 @@ class FilenamePrefixLabelExtractor:
 # ---------------------------------------------------------------------------
 # File discovery and filtering
 # ---------------------------------------------------------------------------
+
 
 def get_audio_files_from_dir(path: str) -> Iterable[str]:
     """Recursively find all ``.wav`` files under ``path``, excluding ``*.bkp/`` dirs."""
@@ -98,16 +100,12 @@ class _ParallelFilter:
     def __call__(self, func: Callable[..., Any], *func_args: Any) -> Iterable[Any]:
         with mp.Pool(self.n_threads) as pool:
             func_pickle = _FilterPickleHelper(func, *func_args)
-            for keep, candidate in pool.imap_unordered(
-                func_pickle, self.data, self.chunk_size
-            ):
+            for keep, candidate in pool.imap_unordered(func_pickle, self.data, self.chunk_size):
                 if keep:
                     yield candidate
 
 
-def _loudness_criteria(
-    file_name: str, working_dir: str | None = None
-) -> tuple[bool, str | None]:
+def _loudness_criteria(file_name: str, working_dir: str | None = None) -> tuple[bool, str | None]:
     if working_dir is not None:
         file_path = os.path.join(working_dir, file_name)
     else:
@@ -119,9 +117,7 @@ def _loudness_criteria(
     return False, None
 
 
-def get_broken_audio_files(
-    files: Iterable[str], working_dir: str | None = None
-) -> Iterable[Any]:
+def get_broken_audio_files(files: Iterable[str], working_dir: str | None = None) -> Iterable[Any]:
     """Find audio files that are below the minimum loudness threshold (1e-3)."""
     parallel_filter = _ParallelFilter(files, chunk_size=100)
     return parallel_filter(_loudness_criteria, working_dir)
@@ -130,6 +126,7 @@ def get_broken_audio_files(
 # ---------------------------------------------------------------------------
 # CSV Split
 # ---------------------------------------------------------------------------
+
 
 class CsvSplit:
     """Split files into train/val/test partitions and persist to CSV."""
@@ -151,9 +148,7 @@ class CsvSplit:
 
     def load(self, split: str, files: List[Any] | None = None) -> list[Any]:
         if split not in self.split_fracs:
-            raise ValueError(
-                "Provided split '{}' is not in `self.split_fracs`.".format(split)
-            )
+            raise ValueError("Provided split '{}' is not in `self.split_fracs`.".format(split))
         if self.splits[split]:
             return self.splits[split]
         if self.working_dir is None:
@@ -189,9 +184,7 @@ class CsvSplit:
             working_dirs: tuple[str, ...] | list[str] = (self.working_dir,)
         else:
             file_dir_map = self.get_file_dir_map(files)  # type: ignore[arg-type]
-            working_dirs = [
-                os.path.join(self.working_dir, p) for p in file_dir_map.keys()
-            ]
+            working_dirs = [os.path.join(self.working_dir, p) for p in file_dir_map.keys()]
         for working_dir in working_dirs:
             splits = self._split_with_seed(
                 files if not self.split_per_dir else file_dir_map[working_dir]
@@ -245,14 +238,10 @@ class CsvSplit:
         file_dir_map: dict[str, list[Any]] = defaultdict(list)
         if self.working_dir is not None:
             for f in files:
-                file_dir_map[
-                    str(pathlib.Path(self.working_dir).joinpath(f).parent)
-                ].append(f)
+                file_dir_map[str(pathlib.Path(self.working_dir).joinpath(f).parent)].append(f)
         else:
             for f in files:
-                file_dir_map[
-                    str(pathlib.Path(".").resolve().joinpath(f).parent)
-                ].append(f)
+                file_dir_map[str(pathlib.Path(".").resolve().joinpath(f).parent)].append(f)
         return file_dir_map
 
     def _split_with_seed(self, files: List[Any] | None) -> dict[str, list[Any]]:
@@ -265,9 +254,7 @@ class CsvSplit:
     def split_fn(self, files: List[Any]) -> dict[str, list[Any]]:
         _splits = np.split(
             ary=random.sample(files, len(files)),
-            indices_or_sections=[
-                int(p * len(files)) for _, p in self.split_fracs.items()
-            ],
+            indices_or_sections=[int(p * len(files)) for _, p in self.split_fracs.items()],
         )
         splits: dict[str, list[Any]] = {}
         for i, key in enumerate(self.split_fracs.keys()):
@@ -288,6 +275,7 @@ def get_tape_key(file: str, valid_years: set[int] | None = None) -> str | None:
         return year + "_" + tape.upper()
     except Exception:
         import traceback
+
         print("Warning: skipping file {}\n{}".format(file, traceback.format_exc()))
     return None
 
@@ -326,8 +314,7 @@ class DatabaseCsvSplit(CsvSplit):
         mappings = {s: _Mapping() for s in self.split_fracs.keys()}
         for tape_name in tape_names:
             missing_files = {
-                s: n_files * f - mappings[s].count
-                for s, f in self.split_fracs.items()
+                s: n_files * f - mappings[s].count for s, f in self.split_fracs.items()
             }
             r = random.uniform(0.0, sum(f for f in missing_files.values()))
             for _split, _n_files in missing_files.items():
@@ -350,6 +337,7 @@ class DatabaseCsvSplit(CsvSplit):
 # ---------------------------------------------------------------------------
 # Dataset classes
 # ---------------------------------------------------------------------------
+
 
 class AudioDataset(torch.utils.data.Dataset):
     """Dataset that loads raw audio waveforms."""
@@ -405,6 +393,9 @@ class SpectrogramDataset(AudioDataset):
     label_extractor:
         Callable that extracts a class name string from a file path.
         Defaults to ``FilenamePrefixLabelExtractor``.
+    labels:
+        Optional class names aligned one-to-one with ``file_names``. When given,
+        these labels take precedence over filename parsing.
     class_to_index:
         Explicit mapping from class name to integer index.  When provided
         this takes precedence over automatic mapping.
@@ -428,6 +419,7 @@ class SpectrogramDataset(AudioDataset):
         classes: list[str] | None = None,
         sequence_length: int = 128,
         label_extractor: LabelExtractor | None = None,
+        labels: Iterable[str] | None = None,
         class_to_index: dict[str, int] | None = None,
         positive_class: str | None = None,
         cache_dir: str | None = None,
@@ -451,6 +443,9 @@ class SpectrogramDataset(AudioDataset):
         self.classes = classes
         self.num_classes = len(classes)
         self.label_extractor = label_extractor or FilenamePrefixLabelExtractor()
+        self.labels = None if labels is None else list(labels)
+        if self.labels is not None and len(self.labels) != len(self.file_names):
+            raise ValueError("labels must contain one class name per file")
 
         valid_freq_compressions = ["linear", "mel", "mfcc"]
         if spec_config.freq_compression not in valid_freq_compressions:
@@ -477,8 +472,8 @@ class SpectrogramDataset(AudioDataset):
                 self.class_dist_dict[self.classes[class_idx]] = class_idx
 
         calls: dict[int, int] = defaultdict(int)
-        for f in self.file_names:
-            calls[self._get_class_index(f)] += 1
+        for index, file_name in enumerate(self.file_names):
+            calls[self._get_class_index(file_name, index)] += 1
         for class_index, n in calls.items():
             logger.debug(
                 "Number of samples in {} for {}: {}".format(
@@ -489,7 +484,7 @@ class SpectrogramDataset(AudioDataset):
         augmentation_enabled = aug_config.enabled
 
         spec_transforms: list[Any] = [
-            lambda fn: audio_io.load_audio_file(fn, sample_rate=spec_config.sample_rate),
+            partial(audio_io.load_audio_file, sample_rate=spec_config.sample_rate),
             T.PreEmphasize(spec_config.preemphasis),
             T.Spectrogram(spec_config.n_fft, spec_config.hop_length, center=False),
         ]
@@ -622,19 +617,21 @@ class SpectrogramDataset(AudioDataset):
         else:
             sample = self.t_subseq(sample)
 
-        label = self._load_label(file)
+        label = self._load_label(file, idx)
         if ground_truth is not None:
             label["ground_truth"] = ground_truth
         return sample, label
 
-    def _load_label(self, file_name: str) -> dict[str, Any]:
+    def _load_label(self, file_name: str, index: int) -> dict[str, Any]:
         return {
             "file_name": file_name,
-            "call": self._get_class_index(file_name),
+            "call": self._get_class_index(file_name, index),
         }
 
-    def _get_class_index(self, file_name: str) -> int:
-        class_name = self.label_extractor(file_name)
+    def _get_class_index(self, file_name: str, index: int) -> int:
+        class_name = (
+            self.labels[index] if self.labels is not None else self.label_extractor(file_name)
+        )
         return self.class_dist_dict[class_name]
 
     def get_class_name_from_index(self, idx: int) -> str:

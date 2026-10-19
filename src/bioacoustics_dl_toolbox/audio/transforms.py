@@ -18,7 +18,6 @@ import scipy.fftpack
 import torch
 import torch.nn.functional as F
 
-from bioacoustics_dl_toolbox.audio.io import load_audio_file
 from bioacoustics_dl_toolbox.io.async_file import AsyncFileReader, AsyncFileWriter
 
 
@@ -91,9 +90,7 @@ class PreEmphasize:
                 "PreEmphasize expects a 2-dimensional signal of size (c, n), "
                 "but got size: {}.".format(y.size())
             )
-        return torch.cat(
-            (y[:, 0].unsqueeze(dim=-1), y[:, 1:] - self.factor * y[:, :-1]), dim=-1
-        )
+        return torch.cat((y[:, 0].unsqueeze(dim=-1), y[:, 1:] - self.factor * y[:, :-1]), dim=-1)
 
 
 class Spectrogram:
@@ -272,18 +269,14 @@ class Amp2Db:
     Modified by Bergler & Schroeter.
     """
 
-    def __init__(
-        self, min_level_db: float | None = None, stype: str = "power"
-    ) -> None:
+    def __init__(self, min_level_db: float | None = None, stype: str = "power") -> None:
         self.stype = stype
         self.multiplier = 10.0 if stype == "power" else 20.0
         if min_level_db is None:
             self.min_level: torch.Tensor | None = None
         else:
             min_level_db = -min_level_db if min_level_db > 0 else min_level_db
-            self.min_level = torch.tensor(
-                np.exp(min_level_db / self.multiplier * np.log(10))
-            )
+            self.min_level = torch.tensor(np.exp(min_level_db / self.multiplier * np.log(10)))
 
     def __call__(self, spec: torch.Tensor) -> torch.Tensor:
         if self.min_level is not None:
@@ -318,8 +311,9 @@ def _scale(spectrogram: torch.Tensor, shift_factor: float, dim: int) -> torch.Te
     in_dim = spectrogram.dim()
     if in_dim < 3:
         raise ValueError(
-            "Expected spectrogram with size (c t f) or (n c t f)"
-            ", but got {}".format(spectrogram.size())
+            "Expected spectrogram with size (c t f) or (n c t f), but got {}".format(
+                spectrogram.size()
+            )
         )
     if in_dim == 3:
         spectrogram.unsqueeze_(dim=0)
@@ -383,9 +377,7 @@ class RandomAmplitude:
         self.decrease_db = decrease_db
 
     def __call__(self, spec: torch.Tensor) -> torch.Tensor:
-        db_change = torch.randint(
-            self.decrease_db, self.increase_db, size=(1,), dtype=torch.float
-        )
+        db_change = torch.randint(self.decrease_db, self.increase_db, size=(1,), dtype=torch.float)
         return spec.mul(10 ** (db_change / 10))
 
 
@@ -425,9 +417,7 @@ class RandomAddNoise:
         if len(self.noise_files) == 1:
             idx = 0
         else:
-            idx = torch.randint(
-                0, len(self.noise_files), size=(1,), dtype=torch.long
-            ).item()
+            idx = torch.randint(0, len(self.noise_files), size=(1,), dtype=torch.long).item()
         noise_file = self.noise_files[idx]
         lock = self.noise_file_locks[noise_file]
         acquired = lock.acquire(timeout=10)
@@ -438,14 +428,13 @@ class RandomAddNoise:
             noise_spec = self.spectrogram_transform(noise_file)
         except Exception:
             import traceback
+
             print(traceback.format_exc())
             return spectrogram
         finally:
             lock.release()
 
-        noise_spec = self.pad_sampler._maybe_sample_subsequence(
-            noise_spec, spectrogram.size(1) * 2
-        )
+        noise_spec = self.pad_sampler._maybe_sample_subsequence(noise_spec, spectrogram.size(1) * 2)
         noise_spec = self.transform(noise_spec)
 
         if self.min_length > 0:
@@ -474,22 +463,23 @@ class RandomAddNoise:
         return spectrogram_augmented
 
 
+def _random_start(length: int) -> int:
+    return torch.randint(0, length, size=(1,), dtype=torch.long).item()
+
+
+def _center_start(length: int) -> int:
+    return length // 2
+
+
 class PaddedSubsequenceSampler:
     """Sample a fixed-length subsequence along one axis, padding if necessary."""
 
-    def __init__(
-        self, sequence_length: int, dim: int = 0, random: bool = True
-    ) -> None:
+    def __init__(self, sequence_length: int, dim: int = 0, random: bool = True) -> None:
         assert isinstance(sequence_length, int)
         assert isinstance(dim, int)
         self.sequence_length = sequence_length
         self.dim = dim
-        if random:
-            self._sampler: Callable[[int], int] = lambda x: torch.randint(
-                0, x, size=(1,), dtype=torch.long
-            ).item()
-        else:
-            self._sampler = lambda x: x // 2
+        self._sampler: Callable[[int], int] = _random_start if random else _center_start
 
     def _maybe_sample_subsequence(
         self, spectrogram: torch.Tensor, sequence_length: int | None = None
@@ -591,13 +581,13 @@ def _melbank(
         f_m = bins[m].item()
         f_m_plus = bins[m + 1].item()
         if f_m_minus != f_m:
-            fb[m - 1, f_m_minus:f_m] = (
-                torch.arange(f_m_minus, f_m) - f_m_minus
-            ).float() / (f_m - f_m_minus)
+            fb[m - 1, f_m_minus:f_m] = (torch.arange(f_m_minus, f_m) - f_m_minus).float() / (
+                f_m - f_m_minus
+            )
         if f_m != f_m_plus:
-            fb[m - 1, f_m:f_m_plus] = (
-                f_m_plus - torch.arange(f_m, f_m_plus)
-            ).float() / (f_m_plus - f_m)
+            fb[m - 1, f_m:f_m_plus] = (f_m_plus - torch.arange(f_m, f_m_plus)).float() / (
+                f_m_plus - f_m
+            )
     if not inverse:
         return fb.t()
     return fb

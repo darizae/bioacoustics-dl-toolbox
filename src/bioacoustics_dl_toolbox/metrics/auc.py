@@ -27,7 +27,9 @@ class AUCMeter:
         self.scores: np.ndarray = torch.DoubleTensor(torch.DoubleStorage()).numpy()
         self.targets: np.ndarray = torch.LongTensor(torch.LongStorage()).numpy()
 
-    def add(self, output: torch.Tensor | np.ndarray, target: torch.Tensor | np.ndarray | int) -> None:
+    def add(
+        self, output: torch.Tensor | np.ndarray, target: torch.Tensor | np.ndarray | int
+    ) -> None:
         if torch.is_tensor(output):
             output = output.cpu().numpy()
         if torch.is_tensor(target):
@@ -36,12 +38,10 @@ class AUCMeter:
             target = np.asarray([target])
         assert np.ndim(output) == 1, "wrong output size (1D expected)"
         assert np.ndim(target) == 1, "wrong target size (1D expected)"
-        assert (
-            output.shape[0] == target.shape[0]
-        ), "number of outputs and targets does not match"
-        assert np.all(
-            np.add(np.equal(target, 1), np.equal(target, 0))
-        ), "targets should be binary (0, 1)"
+        assert output.shape[0] == target.shape[0], "number of outputs and targets does not match"
+        assert np.all(np.add(np.equal(target, 1), np.equal(target, 0))), (
+            "targets should be binary (0, 1)"
+        )
         self.scores = np.append(self.scores, output)
         self.targets = np.append(self.targets, target)
 
@@ -49,9 +49,7 @@ class AUCMeter:
         """Return ``(auc, tpr, fpr)``."""
         if self.scores.shape[0] == 0:
             return (0.5, np.array([]), np.array([]))
-        scores, sortind = torch.sort(
-            torch.from_numpy(self.scores), dim=0, descending=True
-        )
+        scores, sortind = torch.sort(torch.from_numpy(self.scores), dim=0, descending=True)
         scores = scores.numpy()
         sortind = sortind.numpy()
 
