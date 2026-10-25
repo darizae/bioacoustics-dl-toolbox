@@ -1,4 +1,4 @@
-"""Shared deterministic ANIMAL-SPOT-style audio feature preparation.
+"""Shared deterministic audio feature preparation.
 
 The waveform is already loaded/resampled/mono before this pipeline is called.
 Training may augment the *power spectrogram* before calling ``to_features``;
@@ -56,8 +56,8 @@ def build_feature_preprocessor(
 ) -> FeaturePreprocessor:
     """Validate configs and build the shared, augmentation-free feature stages.
 
-    MFCC keeps ANIMAL-SPOT's 32 coefficients (DCT columns 1..32), independent
-    of the mel filterbank width; the default feature dimensions are unchanged.
+    MFCC keeps 32 coefficients (DCT columns 1..32), independent of the mel
+    filterbank width; the default feature dimensions are unchanged.
     ``torchaudio`` is not required.
     """
     _positive_int(spec_config.sample_rate, "sample_rate")
@@ -81,8 +81,8 @@ def build_feature_preprocessor(
         raise ValueError("MFCC requires n_freq_bins >= 33 to produce 32 coefficients")
     if spec_config.freq_compression == "linear":
         # Nearest-neighbor interpolation requires at least one FFT bin in range.
-        # Match the bounds used by ANIMAL-SPOT's Interpolate, including its
-        # exclusive upper bound, to avoid changing previously trained features.
+        # Keep the exclusive upper bound to avoid changing previously trained
+        # features.
         min_bin = max(0, floor(spec_config.n_fft * spec_config.f_min / spec_config.sample_rate))
         max_bin = min(
             spec_config.n_fft - 1,

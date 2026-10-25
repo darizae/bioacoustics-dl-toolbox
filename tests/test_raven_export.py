@@ -2,8 +2,8 @@
 
 import csv
 import io
-from contextlib import nullcontext
 import math
+from contextlib import nullcontext
 from dataclasses import replace
 
 import pytest
@@ -12,9 +12,9 @@ from bioacoustics_dl_toolbox.prediction import (
     RAVEN_COLUMNS,
     WindowPrediction,
     predictions_to_raven_rows,
+    raven,
     write_raven_tsv,
 )
-from bioacoustics_dl_toolbox.prediction import raven
 
 SAMPLE_RATE = 8000
 HEADER = (

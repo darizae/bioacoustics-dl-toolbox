@@ -1,7 +1,6 @@
 """
 Color map lookup tables for spectrogram visualization.
 
-Ported from ANIMAL-SPOT ``visualization/cm.py`` (Bergler & Schroeter, GPL-3.0).
 The plasma and viridis tables are 256×3 RGB float tensors.
 """
 

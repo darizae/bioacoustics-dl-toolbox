@@ -1,7 +1,5 @@
 """
 ResNet-based residual encoder for spectrogram feature extraction.
-
-Ported from ANIMAL-SPOT ``models/residual_encoder.py`` (Bergler & Schroeter, GPL-3.0).
 """
 
 from __future__ import annotations

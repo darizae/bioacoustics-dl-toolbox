@@ -2,7 +2,6 @@
 Confusion matrix meter.
 
 Based on ``torchnet`` (BSD-3-Clause, Zagoruyko & Chilamkurthy).
-Ported from ANIMAL-SPOT ``utils/confusionmeter.py`` (Bergler & Schroeter, GPL-3.0).
 """
 
 from __future__ import annotations

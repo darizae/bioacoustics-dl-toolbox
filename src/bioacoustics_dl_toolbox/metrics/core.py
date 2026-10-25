@@ -1,7 +1,5 @@
 """
 Core evaluation metrics for classification.
-
-Ported from ANIMAL-SPOT ``utils/metrics.py`` (Bergler & Schroeter, GPL-3.0).
 """
 
 from __future__ import annotations

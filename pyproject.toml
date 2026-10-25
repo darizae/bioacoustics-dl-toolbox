@@ -25,7 +25,6 @@ test = ["pytest>=8.4,<10", "ruff>=0.14,<1"]
 
 [project.urls]
 Repository = "https://github.com/darizae/bioacoustics-dl-toolbox"
-"Upstream research" = "https://github.com/ChristianBergler/ANIMAL-SPOT"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bioacoustics_dl_toolbox"]

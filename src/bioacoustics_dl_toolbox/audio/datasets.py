@@ -1,8 +1,7 @@
 """
 Dataset classes for audio classification.
 
-Ported from ANIMAL-SPOT ``data/audiodataset.py`` (Bergler & Schroeter, GPL-3.0).
-Key changes from the original:
+Design notes:
 - Label extraction is pluggable via ``LabelExtractor`` protocol.
 - Configuration is done via typed dataclasses, not raw dicts.
 - Path handling uses ``pathlib`` instead of platform-branching string splits.
@@ -60,7 +59,7 @@ class LabelExtractor(Protocol):
 class FilenamePrefixLabelExtractor:
     """Extract the class name from the filename prefix before the first ``-``.
 
-    This matches the ANIMAL-SPOT naming convention where files are named
+    Files are named
     ``<class>-<info>_ID_YEAR_TAPE_START_END.wav``, e.g.
     ``target-whistles_001_2020_TAPE01_0000_1000.wav`` → ``"target"``.
     """
@@ -369,7 +368,7 @@ class CsvSplit:
 
 
 def get_tape_key(file: str, valid_years: set[int] | None = None) -> str | None:
-    """Extract year and tape from ANIMAL-SPOT filename convention."""
+    """Extract year and tape from the filename convention."""
     while "__" in file:
         file = file.replace("__", "_")
     try:
@@ -515,7 +514,7 @@ class SpectrogramDataset(AudioDataset):
     positive_class:
         For binary classification only. Maps this declared class to index 1
         and the other class to 0. If omitted, binary classes named ``target``
-        retain the ANIMAL-SPOT convention (``target`` = 1). Otherwise binary
+        retain the legacy convention (``target`` = 1). Otherwise binary
         mapping follows class-list order (first = 0, second = 1).
         Multilabel and multiclass tasks always use class-list order unless an
         explicit ``class_to_index`` is provided.
@@ -623,7 +622,7 @@ class SpectrogramDataset(AudioDataset):
                 name: 1 if name == positive_class else 0 for name in self.classes
             }
         elif self.task_type == "binary" and "target" in self.classes:
-            # Preserve ANIMAL-SPOT's binary target=1 convention, independent of order.
+            # Preserve the legacy target=1 convention, independent of order.
             self.class_dist_dict = {name: 1 if name == "target" else 0 for name in self.classes}
         else:
             # Default mapping for other single-label tasks and *all* multilabel tasks.
@@ -746,8 +745,8 @@ class SpectrogramDataset(AudioDataset):
             sample = self.t_pitchshift(sample)
             sample = self.t_timestretch(sample)
 
-        # ANIMAL-SPOT augmentation occurs on power before representation.
-        # The same shared post-compression conversion is used by prediction.
+        # Augmentation occurs on power before representation. The same shared
+        # post-compression conversion is used by prediction.
         sample = self.t_compr_f(sample)
 
         ground_truth: torch.Tensor | None = None

@@ -44,7 +44,7 @@ _None yet._
   explicit `class_to_index` now map `classes[0]` to 0 and `classes[1]` to 1,
   instead of mapping both labels to 0. Check saved label assumptions and use
   an explicit mapping where binary polarity matters. Datasets with `target`
-  retain the ANIMAL-SPOT convention (`target` = 1).
+  retain the legacy convention (`target` = 1).
 
 ## 0.1.1 — baseline in supplied source archive
 

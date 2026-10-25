@@ -25,7 +25,7 @@ File: `tests/test_csv_split.py`. Use arrays of in-memory identifiers and isolate
 - `test_global_random_state_unchanged`: splitting does not advance the global PRNG state.
 - `test_invalid_fraction_inputs_raise`: NaN, negative, non-unit total, empty mapping, duplicate files.
 - `test_relative_workdir_csv_round_trip`: save then load relative paths with nested directories using only `tmp_path` and fake filenames; no audio I/O.
-- `test_tape_split_unchanged`: use a tiny synthetic set of ANIMAL-SPOT-pattern filenames to validate that one tape never spans multiple partitions; mock randomness if necessary. This is a **unit test of `DatabaseCsvSplit`**, not an end-to-end test.
+- `test_tape_split_unchanged`: use a tiny synthetic set of pattern-matching filenames to validate that one tape never spans multiple partitions; mock randomness if necessary. This is a **unit test of `DatabaseCsvSplit`**, not an end-to-end test.
 
 ## Acceptance criteria
 

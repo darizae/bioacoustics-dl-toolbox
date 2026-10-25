@@ -1,7 +1,6 @@
 """Independent multi-label probabilities and streaming classification metrics.
 
-Following ANIMAL-SPOT's ``MetricBase`` counter/update/get convention, counts
-are accumulated across batches before scores are calculated. Unlike its
+Counts are accumulated across batches before scores are calculated. Unlike
 single-label metrics, every class is a separate binary decision.
 """
 

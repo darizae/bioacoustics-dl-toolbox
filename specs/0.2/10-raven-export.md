@@ -4,7 +4,7 @@
 
 ## Problem / evidence
 
-The original ANIMAL-SPOT project offers an evaluation-to-Raven workflow; the toolbox has no structured annotation export. The new predictor (SPEC-06) will return window-relative timestamps and named class probabilities; a small optional **adapter** can convert these to a Raven selection table without importing application code.
+The toolbox has no structured annotation export. The new predictor (SPEC-06) will return window-relative timestamps and named class probabilities; a small optional **adapter** can convert these to a Raven selection table without importing application code.
 
 ## Required implementation
 
@@ -13,7 +13,7 @@ The original ANIMAL-SPOT project offers an evaluation-to-Raven workflow; the too
 3. Use a documented Raven-compatible minimal selection table with these exact columns in order: `Selection`, `View`, `Channel`, `Begin Time (s)`, `End Time (s)`, `Low Freq (Hz)`, `High Freq (Hz)`, `Annotation`. `Annotation` contains the predicted class name, one row per **active** label and selected window (unless optional merge is enabled). Output header even when there are no detections.
 4. Use 1-based selection numbering, stable sort by start time and mapping order, `View="Spectrogram 1"`, `Channel=1` by default, and source seconds clamped/validated to recording bounds. Default frequency bounds are the full sampled band `0..sample_rate/2` (not model feature cutoffs); allow optional explicit positive frequency bounds with `0 <= low < high <= Nyquist`.
 5. Optionally merge overlapping/touching **same-label** windows into one event using pure interval logic; never merge distinct class labels or silently collapse concurrent detections. Merging is off by default; explain that window labels are not automatically behavioral events. No automatic threshold learning.
-6. Reject malformed `start/end`, NaN/negative times, invalid channel/frequency bounds, or unordered/duplicate classes as appropriate. Preserve UTF-8 class names and deterministic numeric formatting. If a consumer wants ANIMAL-SPOT's exact historical CSV layout, that is a separate compatibility request, not an unverified guarantee from this spec.
+6. Reject malformed `start/end`, NaN/negative times, invalid channel/frequency bounds, or unordered/duplicate classes as appropriate. Preserve UTF-8 class names and deterministic numeric formatting. Any exact historical CSV layout is a separate compatibility request, not an unverified guarantee from this spec.
 
 ## Unit tests only
 

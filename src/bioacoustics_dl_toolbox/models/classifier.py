@@ -1,7 +1,5 @@
 """
 Classification head for the ResNet encoder.
-
-Ported from ANIMAL-SPOT ``models/classifier.py`` (Bergler & Schroeter, GPL-3.0).
 """
 
 from __future__ import annotations

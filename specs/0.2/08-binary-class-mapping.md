@@ -4,7 +4,7 @@
 
 ## Problem / evidence
 
-In `SpectrogramDataset.__init__()` (`audio/datasets.py`), a two-class dataset with no `positive_class` or `class_to_index` uses the ANIMAL-SPOT default `"target" → 1; everything else → 0`. For `classes=["sparrow", "crow"]`, **both** names map to index 0, making binary classification incorrect without an error. Existing users with `target` must remain compatible.
+In `SpectrogramDataset.__init__()` (`audio/datasets.py`), a two-class dataset with no `positive_class` or `class_to_index` uses the legacy default `"target" → 1; everything else → 0`. For `classes=["sparrow", "crow"]`, **both** names map to index 0, making binary classification incorrect without an error. Existing users with `target` must remain compatible.
 
 ## Required implementation
 

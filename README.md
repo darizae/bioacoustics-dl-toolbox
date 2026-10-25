@@ -5,12 +5,10 @@ and checkpoint serialization for bioacoustic research. This package contains no
 Alpaca Desktop or `alpaca-pipelines` workflow, persistence, UI, or run-management
 code.
 
-The repository was extracted with history from
-[`alpaca-pipelines`](https://github.com/darizae/alpaca-pipelines) at source commit
-`64f650645c373a4d1b9b47ea3ad48ec2d8bf3f16`. Much of the implementation is
-adapted from [ANIMAL-SPOT](https://github.com/ChristianBergler/ANIMAL-SPOT), an
-animal-independent ResNet-based bioacoustic classification framework. See
-[`NOTICE.md`](NOTICE.md) for attribution and the research citation.
+Historical note: the repository was extracted with history from
+[`alpaca-pipelines`](https://github.com/darizae/alpaca-pipelines) and includes
+adapted [ANIMAL-SPOT](https://github.com/ChristianBergler/ANIMAL-SPOT) material;
+see [`NOTICE.md`](NOTICE.md) for attribution and citation.
 
 ## Roadmap and release notes
 

@@ -1,7 +1,5 @@
 """
 Audio file loading utilities.
-
-Ported from ANIMAL-SPOT ``data/transforms.py`` (Bergler & Schroeter, GPL-3.0).
 """
 
 from __future__ import annotations

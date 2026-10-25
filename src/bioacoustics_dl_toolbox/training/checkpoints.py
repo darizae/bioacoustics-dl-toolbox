@@ -1,7 +1,6 @@
 """
 Checkpoint handling and model persistence.
 
-Ported from ANIMAL-SPOT ``utils/checkpoints.py`` (Bergler & Schroeter, GPL-3.0).
 Adds typed ``save_model`` / ``load_model`` helpers that serialize config
 dataclasses alongside state dicts.
 """
@@ -137,8 +136,8 @@ class CheckpointHandler:
         self._shutdown_worker()
 
 
-# ANIMAL-SPOT's rotating epoch checkpoints and exported trained-model bundles
-# have different contracts. Only exported bundles use this metadata schema.
+# Rotating epoch checkpoints and exported trained-model bundles have different
+# contracts. Only exported bundles use this metadata schema.
 _MODEL_METADATA_VERSION = 2
 _REQUIRED_METADATA_FIELDS = frozenset(
     {"schema_version", "task_type", "normalization_config", "window_length_samples"}
@@ -362,7 +361,7 @@ def extract_model_metadata(payload: Mapping[str, Any]) -> dict[str, Any]:
 def validate_resume_checkpoint_task(
     payload: Mapping[str, Any], task_type: ResolvedTaskType
 ) -> None:
-    """Reject cross-task resumes; accept ANIMAL-SPOT-style untagged epochs.
+    """Reject cross-task resumes; accept untagged epochs.
 
     Epoch-resume files contain ``modelState``/``trainState``/``classes`` and
     optionally ``taskType``. They do *not* carry exported-model metadata.
@@ -400,7 +399,7 @@ def save_model(
 
     If ``metadata`` is supplied, a validated seventh key contains primitive
     v2 task, normalization, geometry, and optional decision settings. Calls
-    without metadata retain the exact ANIMAL-SPOT-derived six-key contract.
+    without metadata retain the exact legacy six-key contract.
     """
     validated = (
         _validated_metadata(metadata, spec_config, class_dist_dict, classifier_config.num_classes)

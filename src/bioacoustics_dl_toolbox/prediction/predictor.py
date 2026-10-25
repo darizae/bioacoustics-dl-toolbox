@@ -1,9 +1,9 @@
-"""ANIMAL-SPOT-inspired sliding-window prediction as a headless library API.
+"""Sliding-window prediction as a headless library API.
 
 The window dataset and spectrogram/normalization stages are shared with
-training. Unlike ANIMAL-SPOT's CLI, this module has no visualization, file
-output, or event-merging side effects. Checkpoint construction follows the
-existing encoder/classifier ``trained_model.pt`` contract.
+training. This module has no visualization, file output, or event-merging side
+effects. Checkpoint construction follows the existing encoder/classifier
+``trained_model.pt`` contract.
 """
 
 from __future__ import annotations

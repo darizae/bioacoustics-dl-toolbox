@@ -2,7 +2,6 @@
 Early stopping criterion.
 
 Based on PyTorch PR #7661 (BSD-style, Facebook et al.).
-Ported from ANIMAL-SPOT ``utils/early_stopping.py`` (Bergler & Schroeter, GPL-3.0).
 """
 
 from __future__ import annotations

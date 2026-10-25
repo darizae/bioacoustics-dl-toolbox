@@ -2,7 +2,6 @@
 Audio and spectral transforms.
 
 All transforms are callable objects that can be composed via ``Compose``.
-Ported from ANIMAL-SPOT ``data/transforms.py`` (Bergler & Schroeter, GPL-3.0).
 """
 
 from __future__ import annotations
@@ -655,9 +654,9 @@ class M2MFCC:
 
     def __call__(self, spec_m: torch.Tensor) -> torch.Tensor:
         device = spec_m.device
-        # ANIMAL-SPOT maps empty mel bands (-inf dB) to zero rather than
-        # flooring them at an arbitrary dB threshold. Keep that convention,
-        # while also replacing any non-finite values before the DCT.
+        # Map empty mel bands (-inf dB) to zero rather than flooring them at an
+        # arbitrary dB threshold, while also replacing non-finite values before
+        # the DCT.
         spec_m = torch.nan_to_num(10 * torch.log10(spec_m), nan=0.0, neginf=0.0, posinf=0.0)
         if isinstance(spec_m, torch.Tensor):
             spec_m_np = spec_m.cpu().numpy()

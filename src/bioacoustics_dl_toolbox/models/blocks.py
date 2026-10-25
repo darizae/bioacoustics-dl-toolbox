@@ -1,7 +1,5 @@
 """
 Residual block definitions and base class.
-
-Ported from ANIMAL-SPOT ``models/residual_base.py`` (Bergler & Schroeter, GPL-3.0).
 """
 
 from __future__ import annotations

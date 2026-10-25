@@ -1,8 +1,7 @@
 """
 Training loop with validation, testing, checkpointing, and TensorBoard logging.
 
-Ported from ANIMAL-SPOT ``trainer.py`` (Bergler & Schroeter, GPL-3.0).
-Key changes:
+Design notes:
 - Accepts an optional ``SummaryWriter``; does not create one internally.
 - Uses standard ``logging.Logger`` instead of Singleton Logger.
 - Visualization helpers are called as standalone functions.

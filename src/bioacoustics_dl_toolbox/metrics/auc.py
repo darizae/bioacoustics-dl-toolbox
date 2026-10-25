@@ -2,7 +2,6 @@
 Area Under the ROC Curve (AUC) meter.
 
 Based on ``torchnet`` AUCMeter (BSD-3-Clause, Zagoruyko & Chilamkurthy).
-Ported from ANIMAL-SPOT ``utils/aucmeter.py`` (Bergler & Schroeter, GPL-3.0).
 """
 
 from __future__ import annotations

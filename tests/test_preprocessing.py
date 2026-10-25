@@ -94,7 +94,7 @@ def test_short_window_is_post_feature_center_zero_padded(fake_audio, compression
     fake_audio["short.wav"] = _waveform(samples)
     preprocessor = build_feature_preprocessor(spec, NormalizationConfig())
     native = preprocessor(_waveform(samples))
-    # The ANIMAL-SPOT-derived transform repeats/center-trims to n_fft for
+    # The transform repeats/center-trims to n_fft for
     # less-than-FFT signals. Larger incomplete windows have several frames.
     assert native.shape[1] == spectrogram_frames_for_samples(samples, spec)
     inference = datasets.StridedAudioDataset(

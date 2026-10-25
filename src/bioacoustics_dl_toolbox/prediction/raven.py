@@ -1,8 +1,7 @@
 """Pure Raven selection-table export for completed :class:`WindowPrediction` records.
 
-ANIMAL-SPOT's evaluation script is the reference for tabular selections and
-optional interval aggregation. This adapter intentionally does not read its
-prediction logs, apply a second detection threshold, or assume a noise class.
+This adapter intentionally does not read prediction logs, apply a second
+detection threshold, or assume a noise class.
 Window classifications are *not* automatically behavioral events.
 """
 

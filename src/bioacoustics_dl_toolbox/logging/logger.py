@@ -1,12 +1,9 @@
 """
 Logger factories for training and prediction.
 
-Replaces the ANIMAL-SPOT Singleton ``Logger`` with factory functions that
-return standard ``logging.Logger`` instances. Consumers configure the root
-logger however they want; these factories just attach the right handlers and
-formatters.
-
-Ported from ANIMAL-SPOT ``utils/logging.py`` (Bergler & Schroeter, GPL-3.0).
+Factory functions return standard ``logging.Logger`` instances. Consumers
+configure the root logger however they want; these factories just attach the
+right handlers and formatters.
 """
 
 from __future__ import annotations

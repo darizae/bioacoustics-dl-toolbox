@@ -4,7 +4,7 @@
 
 ## Problem / evidence
 
-ANIMAL-SPOT provided a prediction entrypoint; the toolbox only exposes `StridedAudioDataset` (`audio/datasets.py`). Consumers currently must reconstruct a model, iterate windows, apply task-dependent logits interpretation, recover timestamps, and reattach class names themselves. This encourages preprocessing drift and incorrect multilabel `argmax` use.
+The toolbox only exposes `StridedAudioDataset` (`audio/datasets.py`). Consumers currently must reconstruct a model, iterate windows, apply task-dependent logits interpretation, recover timestamps, and reattach class names themselves. This encourages preprocessing drift and incorrect multilabel `argmax` use.
 
 ## Required implementation
 
