@@ -33,7 +33,10 @@ from bioacoustics_dl_toolbox.metrics.multilabel import (
     threshold_multilabel,
 )
 from bioacoustics_dl_toolbox.tasks import validate_task_batch
-from bioacoustics_dl_toolbox.training.checkpoints import CheckpointHandler
+from bioacoustics_dl_toolbox.training.checkpoints import (
+    CheckpointHandler,
+    validate_resume_checkpoint_task,
+)
 from bioacoustics_dl_toolbox.training.early_stopping import EarlyStoppingCriterion
 
 try:
@@ -301,12 +304,7 @@ class Trainer:
         if not self.start_scratch and self.checkpoint_handler is not None:
             saved_checkpoint = self.checkpoint_handler.read_latest()
             if saved_checkpoint is not None:
-                saved_task = saved_checkpoint.get("taskType")
-                if saved_task is not None and saved_task != self.task_type:
-                    raise ValueError(
-                        f"Resume checkpoint task '{saved_task}' does not match "
-                        f"trainer task '{self.task_type}'"
-                    )
+                validate_resume_checkpoint_task(saved_checkpoint, self.task_type)
                 try:
                     try:
                         self.model.load_state_dict(saved_checkpoint["modelState"])

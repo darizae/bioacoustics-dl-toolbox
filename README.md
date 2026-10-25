@@ -112,8 +112,8 @@ scores_and_counts = metric.compute()  # class-index-ordered per_class breakdown
 Single-label ROC/confusion and per-sample class-image summaries remain disabled
 for multi-label tasks; metrics with `supports_multilabel = True` can opt in.
 The standalone sliding-window predictor is described below (SPEC-06).
-Checkpoint threshold metadata remains planned (SPEC-07); binary positive-class
-mapping is addressed separately in SPEC-08.
+Calibrated multilabel thresholds can be saved as optional v2 checkpoint metadata
+(SPEC-07); binary positive-class mapping is addressed separately in SPEC-08.
 
 ## Prediction (preprocessing)
 
@@ -218,9 +218,51 @@ print(facts.start_frame, facts.end_frame, facts.sample_rate_hz)
 - `classifierState`
 - `classes`
 
-`load_model` uses CPU placement and PyTorch's weights-only loader. Consumers own
-workflow provenance and any additional metadata such as sequence length,
-normalization, and training metrics.
+`save_model(..., *, metadata=None)` preserves **exactly those six keys** by
+default. To export a v2 model, pass a plain metadata mapping with
+`schema_version=2`, a resolved `task_type` (`binary`, `multiclass`, or
+`multilabel`), the complete `normalization_config` (e.g.
+`dataclasses.asdict(NormalizationConfig())`), and `window_length_samples`.
+Optional fields are `sequence_length_frames` (validated against the spectrogram
+geometry), `hop_samples`, `thresholds` (multilabel scalar, index-ordered list,
+or exact class-name mapping), and index-ordered `class_names`. Class indices
+must be unique and contiguous. `TaskConfig` and `NormalizationConfig` inputs
+are saved **by value**, with only primitive metadata values for PyTorch's
+`weights_only=True` loader. For example:
+
+```python
+from dataclasses import asdict
+from bioacoustics_dl_toolbox import NormalizationConfig, TaskConfig
+from bioacoustics_dl_toolbox.training import extract_model_metadata, save_model
+
+metadata = {
+    "schema_version": 2,
+    "task_type": TaskConfig(task_type="multilabel"),
+    "normalization_config": asdict(NormalizationConfig(mode="min_max")),
+    "window_length_samples": 44100,
+    "hop_samples": 22050,
+    "thresholds": {"bird": 0.55, "frog": 0.7},
+}
+# save_model(model, encoder, encoder_config, classifier, classifier_config,
+#            spec_config, path, {"bird": 0, "frog": 1}, metadata=metadata)
+```
+
+`load_model(path)` still returns the **raw dictionary** on CPU using the
+weights-only loader. `extract_model_metadata(payload)` validates v2 metadata
+or returns an explicit incomplete legacy descriptor for six-key models.
+Legacy models are never relabeled or rewritten: callers must still provide
+their original task, normalization, window length, and prediction hop settings
+when using them for inference. V2 models without an inference hop likewise
+require an explicit hop at prediction time; missing sequence length and
+thresholds are optional. Saved metadata does not replace experiment provenance
+or training metrics.
+
+**Trainer resume checkpoints are separate** from `trained_model.pt`: the
+rotating `*.checkpoint` epoch files hold `modelState`, `trainState` (epoch,
+optimizer, scheduler, early stopping, and best-model state), `classes`, and
+optionally `taskType`. New runs include the resolved `taskType` to reject
+cross-task resumes; older resume files without that field remain readable.
+They do not use exported-model `metadata` or its schema version.
 
 ## Development
 

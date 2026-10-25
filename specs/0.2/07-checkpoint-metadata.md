@@ -1,6 +1,6 @@
 # SPEC-07 — Versioned exported-model metadata, preserving legacy checkpoints
 
-**Status:** Planned · **Priority:** P2 · **Dependencies:** SPEC-03; coordinate with SPEC-02 · **Target:** v0.2.0
+**Status:** Implemented (unit tests: `tests/test_model_metadata.py`, `tests/test_checkpoints.py`; delivered as a Git patch for review and commit) · **Priority:** P2 · **Dependencies:** SPEC-03; coordinate with SPEC-02 · **Target:** v0.2.0
 
 ## Problem / evidence
 
@@ -28,11 +28,11 @@ File: `tests/test_model_metadata.py`, plus retain `tests/test_checkpoints.py`. U
 
 ## Acceptance criteria
 
-- [ ] No breaking change to six-key calls or raw `load_model` behavior.
-- [ ] Optional versioned metadata round-trips under weights-only loading.
-- [ ] Legacy missing values are explicit; unsupported future versions rejected.
-- [ ] Both exported-model and resume-checkpoint contracts are separately documented.
-- [ ] Unit tests pass; no integration tests.
+- [x] No breaking change to six-key calls or raw `load_model` behavior.
+- [x] Optional versioned metadata round-trips under weights-only loading.
+- [x] Legacy missing values are explicit; unsupported future versions rejected.
+- [x] Both exported-model and resume-checkpoint contracts are separately documented.
+- [x] Unit tests pass; no integration tests.
 
 ## Documentation and release notes
 

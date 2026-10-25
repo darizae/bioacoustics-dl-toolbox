@@ -12,6 +12,7 @@ This is the **ongoing** change log for `bioacoustics-dl-toolbox`. The repository
 - **SPEC-04:** Added multi-hot audio labels and BCE-with-logits training/validation support for simultaneous bioacoustic classes.
 - **SPEC-05:** Added independent sigmoid/threshold multi-label predictions with per-class counts and micro/macro precision, recall, and F1 metrics.
 - **SPEC-06:** Added a reusable, headless sliding-window predictor with class-named probabilities, task-aware predictions, and recording-relative timestamps.
+- **SPEC-07:** Added optional versioned exported-model metadata for reproducible task, normalization, window, and threshold settings, while preserving legacy six-key checkpoints.
 
 ### Changed
 
@@ -44,7 +45,6 @@ The following are proposals, **not released changes**. Each workstream provides 
 
 | Spec | Planned work |
 | --- | --- |
-| [07](specs/0.2/07-checkpoint-metadata.md) | Versioned optional task and inference metadata with legacy loading |
 | [08](specs/0.2/08-binary-class-mapping.md) | Strict, unambiguous binary label mapping |
 | [09](specs/0.2/09-unit-test-policy.md) | Broader focused **unit-test-only** coverage |
 | [10](specs/0.2/10-raven-export.md) | Optional Raven-compatible selection-table export |

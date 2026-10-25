@@ -33,7 +33,7 @@ from bioacoustics_dl_toolbox.metrics.multilabel import (
 )
 from bioacoustics_dl_toolbox.models.classifier import Classifier
 from bioacoustics_dl_toolbox.models.encoder import ResidualEncoder
-from bioacoustics_dl_toolbox.training.checkpoints import load_model
+from bioacoustics_dl_toolbox.training.checkpoints import extract_model_metadata, load_model
 
 
 @dataclass(frozen=True)
@@ -135,18 +135,7 @@ def _bundle_inputs(
     float | Sequence[float] | Mapping[str, float] | torch.Tensor | None,
 ]:
     """Resolve v2 metadata, but never make up missing v1 inference settings."""
-    metadata = source.get("metadata")
-    if metadata is not None:
-        if not isinstance(metadata, Mapping):
-            raise ValueError("checkpoint metadata must be a mapping")
-        if metadata.get("schema_version") != 2:
-            raise ValueError(
-                "Unsupported checkpoint metadata schema_version "
-                f"{metadata.get('schema_version')!r}; "
-                "upgrade the loader or export a supported v2 bundle"
-            )
-    else:
-        metadata = {}
+    metadata = extract_model_metadata(source)
 
     if class_to_index is None:
         class_to_index = source.get("classes")
@@ -156,10 +145,6 @@ def _bundle_inputs(
         spec_config = _config_from_bundle(
             SpectrogramConfig, source["spectrogramConfig"], "spectrogramConfig"
         )
-    if metadata.get("task_type") is not None and metadata["task_type"] not in (
-        "binary", "multiclass", "multilabel"
-    ):
-        raise ValueError("checkpoint metadata task_type must be resolved, not 'auto'")
     if task_config is None and metadata.get("task_type") is not None:
         task_config = TaskConfig(task_type=metadata["task_type"])
     if norm_config is None and metadata.get("normalization_config") is not None:
