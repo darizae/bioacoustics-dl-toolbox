@@ -124,8 +124,8 @@ def test_dataset_preserves_auto_single_label_and_explicit_multiclass(monkeypatch
     assert multiclass._load_label("noise-example.wav", 0)["call"] == 0
 
 
-def test_dataset_rejects_unsupported_multilabel_target_format(monkeypatch):
-    with pytest.raises(ValueError, match="multi-hot annotations require SPEC-04"):
+def test_dataset_multilabel_requires_explicit_annotations(monkeypatch):
+    with pytest.raises(ValueError, match="explicit per-file labels"):
         make_dataset(monkeypatch, TaskConfig(task_type="multilabel"))
 
 
@@ -177,12 +177,11 @@ def test_trainer_accepts_legacy_task_and_explicit_two_class_multiclass():
     assert trainer.task_type == "multiclass"
 
 
-def test_trainer_refuses_multilabel_before_loss_or_single_label_metrics():
+def test_trainer_accepts_multilabel_task_configuration():
     multilabel = TaskConfig(task_type="multilabel")
-    with pytest.raises(ValueError, match="multilabel training requires SPEC-04"):
-        make_trainer(multilabel)._validate_task_setup(
-            make_loader(multilabel), make_loader(multilabel), None
-        )
+    trainer = make_trainer(multilabel)
+    trainer._validate_task_setup(make_loader(multilabel), make_loader(multilabel), None)
+    assert trainer.task_type == "multilabel"
 
 
 def test_legacy_binary_one_step_still_uses_integer_targets():

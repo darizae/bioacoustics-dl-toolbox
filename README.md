@@ -55,10 +55,39 @@ assert resolve_task_type(multilabel, num_classes=2) == "multilabel"
 
 Pass the same `task_config` to `SpectrogramDataset` and `Trainer`. All classifiers
 emit raw `[B, C]` logits, without a built-in activation. Binary and multiclass
-use integer `[B]` targets and softmax/argmax decisions; multilabel uses float
-multi-hot `[B, C]` targets and per-class sigmoid/threshold decisions. **Multilabel
-data annotations and trainer support are not implemented yet** (SPEC-04), and
-independent probability/threshold helpers and metrics are planned for SPEC-05.
+use integer `[B]` targets and softmax/argmax decisions. For multilabel training,
+annotate **each file** with an iterable of class names, in the same order as
+`file_names`; an empty iterable denotes no active class. A bare string is not
+an item annotation. Repeated names within an item count only once.
+
+```python
+import logging
+import torch
+from bioacoustics_dl_toolbox import TaskConfig
+from bioacoustics_dl_toolbox.audio.datasets import SpectrogramDataset
+from bioacoustics_dl_toolbox.training.trainer import Trainer
+
+task = TaskConfig(task_type="multilabel")
+train_dataset = SpectrogramDataset(
+    file_names=["first.wav", "second.wav", "third.wav"],
+    classes=["bird", "frog", "rain"],
+    labels=[["bird", "rain"], [], ["frog", "frog"]],
+    task_config=task,
+)
+# Targets: [1, 0, 1], [0, 0, 0], [0, 1, 0], all float32.
+# Use a classifier model producing three raw logits per example.
+trainer = Trainer(model, logging.getLogger(__name__), task_config=task)
+loss_fn = torch.nn.BCEWithLogitsLoss()  # pass to trainer.fit(...)
+```
+
+Use one validated `class_to_index` mapping (indices `0..C-1`) for training,
+validation, and testing. Multilabel targets are float32 `[B, C]` multi-hot
+vectors; **never apply sigmoid before `BCEWithLogitsLoss`**. Multilabel loss and
+early stopping work now; independent threshold utilities and aggregate metrics
+are planned for SPEC-05. Until then, single-label ROC/confusion and per-sample
+class-image summaries are disabled, with a warning. Explicit custom streaming
+metrics can opt in with `supports_multilabel = True` and must accept boolean
+`[B, C]` target and prediction tensors (sigmoid thresholded at `>= 0.5`).
 Binary positive-class mapping is addressed separately in SPEC-08.
 
 ## Checkpoint contract

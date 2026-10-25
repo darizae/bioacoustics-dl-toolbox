@@ -17,7 +17,7 @@ import os
 import pathlib
 import random
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Iterable as IterableABC, Mapping
 from functools import partial
 from math import ceil, floor, fsum, isclose, isfinite
 from typing import Any, Callable, Dict, Iterable, List, Protocol
@@ -497,8 +497,12 @@ class SpectrogramDataset(AudioDataset):
         Callable that extracts a class name string from a file path.
         Defaults to ``FilenamePrefixLabelExtractor``.
     labels:
-        Optional class names aligned one-to-one with ``file_names``. When given,
-        these labels take precedence over filename parsing.
+        For binary/multiclass, optional class names aligned with ``file_names``;
+        omitted labels are extracted from filename prefixes. For an explicit
+        multilabel task, **required** per-item iterables of class names, e.g.
+        ``[["bird", "rain"], [], ["frog", "frog"]]``. Empty annotations are valid
+        and repetitions within an item count only once. A bare string is not a
+        valid per-item multilabel annotation; filename parsing is single-label only.
     class_to_index:
         Explicit mapping from class name to integer index.  When provided
         this takes precedence over automatic mapping.
@@ -511,8 +515,8 @@ class SpectrogramDataset(AudioDataset):
     dataset_name:
         Name for logging.
     task_config:
-        Task semantics. Defaults to legacy single-label auto behavior. Multi-hot
-        dataset targets are added separately in SPEC-04.
+        Task semantics. Defaults to legacy single-label ``auto`` behavior.
+        Explicit ``multilabel`` produces float32 multi-hot vectors in mapping order.
     """
 
     def __init__(
@@ -525,7 +529,7 @@ class SpectrogramDataset(AudioDataset):
         classes: list[str] | None = None,
         sequence_length: int = 128,
         label_extractor: LabelExtractor | None = None,
-        labels: Iterable[str] | None = None,
+        labels: Iterable[str] | Iterable[Iterable[str]] | None = None,
         class_to_index: dict[str, int] | None = None,
         positive_class: str | None = None,
         cache_dir: str | None = None,
@@ -547,20 +551,23 @@ class SpectrogramDataset(AudioDataset):
         self.spec_config = spec_config
         self.norm_config = norm_config
         self.aug_config = aug_config
-        self.classes = classes
+        if any(not isinstance(name, str) or not name for name in classes):
+            raise ValueError("classes must contain nonempty class names")
+        if len(set(classes)) != len(classes):
+            raise ValueError("classes must not contain duplicate class declarations")
+        self.classes = list(classes)
         self.num_classes = len(classes)
         self.task_config = task_config
         self.task_type = resolve_task_type(task_config, self.num_classes)
-        if self.task_type == "multilabel":
-            raise ValueError(
-                "SpectrogramDataset does not yet support multilabel targets; "
-                "multi-hot annotations require SPEC-04. Do not use single-label targets "
-                "with a multilabel task."
-            )
         self.label_extractor = label_extractor or FilenamePrefixLabelExtractor()
         self.labels = None if labels is None else list(labels)
+        if self.task_type == "multilabel" and self.labels is None:
+            raise ValueError(
+                "multilabel requires explicit per-file labels; "
+                "filename extraction is single-label only"
+            )
         if self.labels is not None and len(self.labels) != len(self.file_names):
-            raise ValueError("labels must contain one class name per file")
+            raise ValueError("labels must contain one annotation per file")
 
         valid_freq_compressions = ["linear", "mel", "mfcc"]
         if spec_config.freq_compression not in valid_freq_compressions:
@@ -574,7 +581,22 @@ class SpectrogramDataset(AudioDataset):
 
         self.class_dist_dict: dict[str, int] = {}
         if class_to_index is not None:
+            if (
+                not isinstance(class_to_index, Mapping)
+                or set(class_to_index) != set(self.classes)
+                or any(
+                    not isinstance(value, int) or isinstance(value, bool)
+                    for value in class_to_index.values()
+                )
+                or set(class_to_index.values()) != set(range(self.num_classes))
+            ):
+                raise ValueError(
+                    "class_to_index must map every declared class once "
+                    "to distinct indices 0..C-1"
+                )
             self.class_dist_dict = dict(class_to_index)
+        elif self.task_type == "multilabel":
+            self.class_dist_dict = {name: idx for idx, name in enumerate(self.classes)}
         elif self.num_classes == 2 and positive_class is not None:
             for class_val in self.classes:
                 self.class_dist_dict[class_val] = 1 if class_val == positive_class else 0
@@ -586,9 +608,37 @@ class SpectrogramDataset(AudioDataset):
             for class_idx in range(len(self.classes)):
                 self.class_dist_dict[self.classes[class_idx]] = class_idx
 
+        # Validate all supplied annotations at construction time, before reading
+        # audio. Store each multilabel item as a deduplicated tuple of names.
+        if self.task_type == "multilabel":
+            normalized: list[tuple[str, ...]] = []
+            for item in self.labels:  # type: ignore[union-attr]
+                if isinstance(item, (str, bytes, Mapping)) or not isinstance(item, IterableABC):
+                    raise ValueError(
+                        "each multilabel item must be an iterable of class names, not a string"
+                    )
+                names = tuple(item)
+                if any(
+                    not isinstance(name, str) or name not in self.class_dist_dict
+                    for name in names
+                ):
+                    raise ValueError(
+                        f"unknown or invalid multilabel class in annotation: {names!r}"
+                    )
+                normalized.append(tuple(dict.fromkeys(names)))
+            self.labels = normalized
+        elif self.labels is not None:
+            for name in self.labels:
+                if not isinstance(name, str) or name not in self.class_dist_dict:
+                    raise ValueError(f"unknown single-label class: {name!r}")
+
         calls: dict[int, int] = defaultdict(int)
         for index, file_name in enumerate(self.file_names):
-            calls[self._get_class_index(file_name, index)] += 1
+            if self.task_type == "multilabel":
+                for name in self.labels[index]:  # type: ignore[index]
+                    calls[self.class_dist_dict[name]] += 1
+            else:
+                calls[self._get_class_index(file_name, index)] += 1
         for class_index, n in calls.items():
             logger.debug(
                 "Number of samples in {} for {}: {}".format(
@@ -738,15 +788,24 @@ class SpectrogramDataset(AudioDataset):
         return sample, label
 
     def _load_label(self, file_name: str, index: int) -> dict[str, Any]:
+        if self.task_type == "multilabel":
+            multi_hot = torch.zeros(self.num_classes, dtype=torch.float32)
+            for name in self.labels[index]:  # type: ignore[index]
+                multi_hot[self.class_dist_dict[name]] = 1.0
+            return {"file_name": file_name, "call": multi_hot}
         return {
             "file_name": file_name,
             "call": self._get_class_index(file_name, index),
         }
 
     def _get_class_index(self, file_name: str, index: int) -> int:
+        if self.task_type == "multilabel":
+            raise ValueError("class indices are only available for single-label tasks")
         class_name = (
             self.labels[index] if self.labels is not None else self.label_extractor(file_name)
         )
+        if class_name not in self.class_dist_dict:
+            raise ValueError(f"unknown single-label class: {class_name!r}")
         return self.class_dist_dict[class_name]
 
     def get_class_name_from_index(self, idx: int) -> str:

@@ -58,7 +58,7 @@ class Trainer:
         If ``True``, ignore existing checkpoints.
     task_config:
         Task contract, defaulting to legacy single-label ``auto`` behavior.
-        Multi-hot training is added separately in SPEC-04.
+        Explicit multilabel uses multi-hot targets and BCEWithLogitsLoss.
     """
 
     def __init__(
@@ -76,6 +76,8 @@ class Trainer:
         self.model = model
         self.task_config = task_config
         self.task_type: ResolvedTaskType | None = None
+        self._multilabel_warning_emitted = False
+        self._multilabel_metrics_warning_emitted = False
         self.logger = logger
         self.prefix = prefix
         self.n_summaries = n_summaries
@@ -126,11 +128,6 @@ class Trainer:
                 f"{phase} dataset task '{dataset_type}' does not match "
                 f"the training task '{self.task_type}'"
             )
-        if dataset_type == "multilabel":
-            raise ValueError(
-                "Trainer does not yet support multilabel targets or BCE-with-logits; "
-                "multilabel training requires SPEC-04"
-            )
         return dataset_type
 
     def _validate_task_setup(
@@ -143,6 +140,15 @@ class Trainer:
         num_classes = train_loader.dataset.num_classes  # type: ignore[union-attr]
         self.task_type = self._resolve_loader_task(train_loader, "train")
         train_mapping = getattr(train_loader.dataset, "class_dist_dict", None)
+        if self.task_type == "multilabel":
+            if (
+                train_mapping is None
+                or len(train_mapping) != num_classes
+                or set(train_mapping.values()) != set(range(num_classes))
+            ):
+                raise ValueError(
+                    "multilabel train dataset requires a contiguous class_to_index mapping"
+                )
         for phase, loader in (("val", val_loader), ("test", test_loader)):
             if loader is None:
                 continue
@@ -153,6 +159,8 @@ class Trainer:
                 )
             self._resolve_loader_task(loader, phase)
             mapping = getattr(loader.dataset, "class_dist_dict", None)
+            if self.task_type == "multilabel" and mapping is None:
+                raise ValueError(f"{phase} dataset requires class_to_index in multilabel mode")
             if train_mapping is not None and mapping is not None and mapping != train_mapping:
                 raise ValueError(f"{phase} dataset class_to_index differs from train dataset")
 
@@ -167,6 +175,62 @@ class Trainer:
                 f"Classifier output num_classes={configured_classes} does not match "
                 f"dataset num_classes={num_classes}"
             )
+
+    @staticmethod
+    def _validate_loss_fn(task_type: ResolvedTaskType, loss_fn: nn.Module) -> None:
+        """Multilabel logits require BCEWithLogitsLoss (never sigmoid + BCE)."""
+        if task_type == "multilabel" and not isinstance(loss_fn, nn.BCEWithLogitsLoss):
+            raise ValueError("multilabel training requires nn.BCEWithLogitsLoss on raw logits")
+
+    def _metrics_for_task(
+        self,
+        metrics: dict[str, MetricBase] | list[MetricBase],
+        task_type: ResolvedTaskType,
+    ) -> dict[str, MetricBase] | list[MetricBase]:
+        """Use only explicitly multilabel-capable metrics until SPEC-05 ships.
+
+        Opt-in metrics must implement the normal MetricBase reset/update/get
+        interface, accept boolean [B,C] targets and predictions, and set
+        ``supports_multilabel = True``. Other metrics are not logged because
+        single-label scores may have a different meaning in multilabel tasks.
+        """
+        if task_type != "multilabel":
+            return metrics
+        if not self._multilabel_warning_emitted:
+            self.logger.warning(
+                "Multilabel ROC/confusion and per-sample class image summaries are disabled; "
+                "SPEC-05 metrics are not yet included. Only metrics explicitly declaring "
+                "supports_multilabel=True will be logged."
+            )
+            self._multilabel_warning_emitted = True
+        if isinstance(metrics, dict):
+            selected = {
+                name: metric
+                for name, metric in metrics.items()
+                if getattr(metric, "supports_multilabel", False)
+            }
+        else:
+            selected = [metric for metric in metrics if getattr(metric, "supports_multilabel", False)]
+        if len(selected) != len(metrics) and not self._multilabel_metrics_warning_emitted:
+            self.logger.warning("Skipping single-label metrics for multilabel %s", task_type)
+            self._multilabel_metrics_warning_emitted = True
+        return selected
+
+    @staticmethod
+    def _task_targets(
+        raw_label: torch.Tensor | None, device: torch.device, task_type: ResolvedTaskType
+    ) -> torch.Tensor | None:
+        if raw_label is None:
+            return None
+        dtype = torch.float32 if task_type == "multilabel" else torch.int64
+        return raw_label.to(device, non_blocking=True, dtype=dtype)
+
+    @staticmethod
+    def _task_predictions(output: torch.Tensor, task_type: ResolvedTaskType) -> torch.Tensor:
+        if task_type == "multilabel":
+            # No argmax: several classes (or none) may be active per example.
+            return torch.sigmoid(output.detach()) >= 0.5
+        return torch.argmax(output.detach(), dim=1)
 
     def fit(
         self,
@@ -192,6 +256,19 @@ class Trainer:
         Returns the model loaded with the best validation weights.
         """
         self._validate_task_setup(train_loader, val_loader, test_loader)
+        self._validate_loss_fn(self.task_type, loss_fn)
+        selected_metrics = self._metrics_for_task(metrics, self.task_type)
+        if self.task_type == "multilabel" and val_metric != "loss":
+            if isinstance(selected_metrics, dict):
+                valid_metric = val_metric in selected_metrics
+            else:
+                valid_metric = isinstance(val_metric, int) and 0 <= val_metric < len(
+                    selected_metrics
+                )
+            if not valid_metric:
+                raise ValueError(
+                    f"val_metric {val_metric!r} is unavailable for task {self.task_type}"
+                )
         checkpoint = checkpoint or (lambda: None)
         epoch_callback = epoch_callback or (lambda _current, _total, _phase: None)
         self.logger.info("Init model on device '{}'".format(device))
@@ -247,7 +324,7 @@ class Trainer:
             for epoch in range(start_epoch, n_epochs):
                 checkpoint()
                 self._train_epoch(
-                    epoch, train_loader, loss_fn, optimizer, metrics, device, checkpoint
+                    epoch, train_loader, loss_fn, optimizer, selected_metrics, device, checkpoint
                 )
                 epoch_callback(epoch + 1, n_epochs, "train")
                 if epoch % val_interval == 0 or epoch == n_epochs - 1:
@@ -255,7 +332,7 @@ class Trainer:
                         epoch,
                         val_loader,
                         loss_fn,
-                        metrics,
+                        selected_metrics,
                         device,
                         phase="val",
                         checkpoint=checkpoint,
@@ -264,7 +341,7 @@ class Trainer:
                     if val_metric == "loss":
                         val_result = val_loss
                     else:
-                        val_result = metrics[val_metric].get()  # type: ignore[index]
+                        val_result = selected_metrics[val_metric].get()  # type: ignore[index]
 
                     if val_comp(val_result, best_metric):
                         best_metric = val_result
@@ -310,7 +387,7 @@ class Trainer:
                 0,
                 test_loader,
                 loss_fn,
-                metrics,
+                selected_metrics,
                 device,
                 phase="test",
                 checkpoint=checkpoint,
@@ -318,7 +395,7 @@ class Trainer:
             if val_metric == "loss":
                 final_metric = final_loss
             else:
-                final_metric = metrics[val_metric].get()  # type: ignore[index]
+                final_metric = selected_metrics[val_metric].get()  # type: ignore[index]
 
         time_elapsed = time.time() - since
         self.logger.info(
@@ -341,7 +418,6 @@ class Trainer:
         checkpoint: Callable[[], None],
     ) -> float:
         self.logger.debug("train|{}|start".format(epoch))
-        self._reset_metrics(metrics, device)
         self.model.train()
 
         epoch_start = time.time()
@@ -351,29 +427,35 @@ class Trainer:
 
         num_classes = train_loader.dataset.num_classes  # type: ignore[union-attr]
         task_type = self._resolve_loader_task(train_loader, "train")
+        self._validate_loss_fn(task_type, loss_fn)
+        active_metrics = self._metrics_for_task(metrics, task_type)
+        self._reset_metrics(active_metrics, device)
         if task_type == "binary":
             auc: AUCMeter | None = AUCMeter()
             confusion: ConfusionMeter | None = None
-        else:
+        elif task_type == "multiclass":
             auc = None
             confusion = ConfusionMeter(n_categories=num_classes)
+        else:
+            auc = None
+            confusion = None
 
         for i, (features, label) in enumerate(train_loader):
             checkpoint()
             features = features.to(device)
             raw_label: torch.Tensor | None = label.get("call")
-            call_label = (
-                raw_label.to(device, non_blocking=True, dtype=torch.int64)
-                if raw_label is not None
-                else None
-            )
+            call_label = self._task_targets(raw_label, device, task_type)
 
             data_loading_time.update(torch.Tensor([(time.time() - start_data_loading)]))
 
             optimizer.zero_grad()
             output = self.model(features)
-            if raw_label is not None:
+            if raw_label is not None and task_type != "multilabel":
+                # Keep the SPEC-03 guard: do not silently coerce invalid
+                # single-label floating annotations into class indices.
                 validate_task_batch(output, raw_label, self.task_config, num_classes)
+            if call_label is not None:
+                validate_task_batch(output, call_label, self.task_config, num_classes)
             loss = loss_fn(output, call_label)
             loss.backward()
             optimizer.step()
@@ -382,15 +464,16 @@ class Trainer:
 
             prediction: torch.Tensor | None = None
             if call_label is not None:
-                prediction = torch.argmax(output.data, dim=1)
-                self._update_metrics(metrics, call_label, prediction)
+                prediction = self._task_predictions(output, task_type)
+                metric_targets = call_label.bool() if task_type == "multilabel" else call_label
+                self._update_metrics(active_metrics, metric_targets, prediction)
                 if auc is not None:
                     score = nn.functional.softmax(output, dim=1)[:, 1]
                     auc.add(score.detach(), call_label)
                 if confusion is not None:
                     confusion.add(prediction, call_label)
 
-            if i == 0:
+            if i == 0 and task_type != "multilabel":
                 self._write_summaries(
                     features=features,
                     labels=call_label,
@@ -403,7 +486,7 @@ class Trainer:
 
         self._write_scalar_summaries_logs(
             loss=epoch_loss.get(),
-            metrics=metrics,
+            metrics=active_metrics,
             lr=optimizer.param_groups[0]["lr"],
             epoch_time=time.time() - epoch_start,
             data_loading_time=data_loading_time.get(),
@@ -411,7 +494,7 @@ class Trainer:
             phase="train",
         )
 
-        if call_label is not None:
+        if call_label is not None and task_type != "multilabel":
             self._write_classification_summaries(auc, confusion, train_loader, epoch, "train")
 
         if self.writer is not None:
@@ -433,7 +516,6 @@ class Trainer:
         self.model.eval()
 
         with torch.no_grad():
-            self._reset_metrics(metrics, device)
             epoch_start = time.time()
             start_data_loading = epoch_start
             data_loading_time = Sum(torch.device("cpu"))
@@ -441,42 +523,47 @@ class Trainer:
 
             num_classes = test_loader.dataset.num_classes  # type: ignore[union-attr]
             task_type = self._resolve_loader_task(test_loader, phase)
+            self._validate_loss_fn(task_type, loss_fn)
+            active_metrics = self._metrics_for_task(metrics, task_type)
+            self._reset_metrics(active_metrics, device)
             if task_type == "binary":
                 auc: AUCMeter | None = AUCMeter()
                 confusion: ConfusionMeter | None = None
-            else:
+            elif task_type == "multiclass":
                 auc = None
                 confusion = ConfusionMeter(n_categories=num_classes)
+            else:
+                auc = None
+                confusion = None
 
             for i, (features, label) in enumerate(test_loader):
                 checkpoint()
                 features = features.to(device)
                 raw_label: torch.Tensor | None = label.get("call")
-                call_label = (
-                    raw_label.to(device, non_blocking=True, dtype=torch.int64)
-                    if raw_label is not None
-                    else None
-                )
+                call_label = self._task_targets(raw_label, device, task_type)
 
                 data_loading_time.update(torch.Tensor([(time.time() - start_data_loading)]))
 
                 output = self.model(features)
-                if raw_label is not None:
+                if raw_label is not None and task_type != "multilabel":
                     validate_task_batch(output, raw_label, self.task_config, num_classes)
+                if call_label is not None:
+                    validate_task_batch(output, call_label, self.task_config, num_classes)
                 loss = loss_fn(output, call_label)
                 epoch_loss.update(loss)
 
                 prediction: torch.Tensor | None = None
                 if call_label is not None:
-                    prediction = torch.argmax(output.data, dim=1)
-                    self._update_metrics(metrics, call_label, prediction)
+                    prediction = self._task_predictions(output, task_type)
+                    metric_targets = call_label.bool() if task_type == "multilabel" else call_label
+                    self._update_metrics(active_metrics, metric_targets, prediction)
                     if auc is not None:
                         score = nn.functional.softmax(output, dim=1)[:, 1]
                         auc.add(score, call_label)
                     if confusion is not None:
                         confusion.add(prediction, call_label)
 
-                if i == 0:
+                if i == 0 and task_type != "multilabel":
                     self._write_summaries(
                         features=features,
                         labels=call_label,
@@ -489,14 +576,14 @@ class Trainer:
 
         self._write_scalar_summaries_logs(
             loss=epoch_loss.get(),
-            metrics=metrics,
+            metrics=active_metrics,
             epoch_time=time.time() - epoch_start,
             data_loading_time=data_loading_time.get(),
             epoch=epoch,
             phase=phase,
         )
 
-        if call_label is not None:
+        if call_label is not None and task_type != "multilabel":
             self._write_classification_summaries(auc, confusion, test_loader, epoch, phase)
 
         if self.writer is not None:

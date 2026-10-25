@@ -1,6 +1,6 @@
 # SPEC-04 — Multi-hot labels and multi-label model training
 
-**Status:** Planned · **Priority:** P1 · **Dependencies:** SPEC-03 · **Target:** v0.2.0
+**Status:** Implemented · **Priority:** P1 · **Dependencies:** SPEC-03 · **Target:** v0.2.0 · **Unit tests:** `tests/test_multilabel_dataset.py`, `tests/test_multilabel_trainer.py` · **Commit:** pending (patch delivery)
 
 ## Problem / evidence
 
@@ -27,11 +27,16 @@ Files: `tests/test_multilabel_dataset.py`, `tests/test_multilabel_trainer.py`. M
 
 ## Acceptance criteria
 
-- [ ] Multi-label data loads in a deterministic class order and supports concurrent positives/empty sets.
-- [ ] Train and validation steps use float multi-hot targets and logits-based BCE correctly.
-- [ ] Single-label data and trainer remain backward-compatible.
-- [ ] No accidental `argmax` or scalar-label image summary path for multilabel.
-- [ ] Unit tests only; no full training-run tests.
+- [x] Multi-label data loads in a deterministic class order and supports concurrent positives/empty sets.
+- [x] Train and validation steps use float multi-hot targets and logits-based BCE correctly.
+- [x] Single-label data and trainer remain backward-compatible.
+- [x] No accidental `argmax` or scalar-label image summary path for multilabel.
+- [x] Unit tests only; no full training-run tests.
+
+SPEC-05 metric accumulators are not present in this snapshot: the trainer skips
+legacy single-label scores/plots in multilabel mode, warns, and accepts only
+explicitly opt-in multi-label metrics (`supports_multilabel = True`) operating on
+boolean `[B,C]` targets and predictions at a fixed threshold of 0.5.
 
 ## Documentation and release notes
 
