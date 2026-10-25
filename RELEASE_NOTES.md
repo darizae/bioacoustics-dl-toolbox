@@ -22,6 +22,7 @@ _None yet._
 
 - **SPEC-01:** Fixed `CsvSplit` boundaries so train/validation/test partitions cover every input exactly once, including deterministic handling of seed `0` and reliable CSV reuse.
 - **SPEC-02:** Unified deterministic training/prediction feature processing and corrected MFCC inference to avoid applying decibel conversion twice.
+- **SPEC-08:** Fixed silent binary-label collapse for datasets without a `target` class; explicit or deterministic bijective class mappings now validate early.
 
 ### Deprecated / Removed
 
@@ -38,6 +39,11 @@ _None yet._
   data. This correction does **not** require retraining or change the model's
   32-coefficient MFCC input shape. Linear/mel features and cached power
   spectrogram format are unchanged.
+- **SPEC-08:** Two-class datasets without `target`, `positive_class`, or an
+  explicit `class_to_index` now map `classes[0]` to 0 and `classes[1]` to 1,
+  instead of mapping both labels to 0. Check saved label assumptions and use
+  an explicit mapping where binary polarity matters. Datasets with `target`
+  retain the ANIMAL-SPOT convention (`target` = 1).
 
 ### Planned for 0.2.0 — not implemented
 
@@ -45,7 +51,6 @@ The following are proposals, **not released changes**. Each workstream provides 
 
 | Spec | Planned work |
 | --- | --- |
-| [08](specs/0.2/08-binary-class-mapping.md) | Strict, unambiguous binary label mapping |
 | [09](specs/0.2/09-unit-test-policy.md) | Broader focused **unit-test-only** coverage |
 | [10](specs/0.2/10-raven-export.md) | Optional Raven-compatible selection-table export |
 

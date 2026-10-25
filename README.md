@@ -43,6 +43,9 @@ single-label behavior. `auto` resolves two classes to **binary with two raw
 logits** and more than two classes to **multiclass**; one-class `auto` is invalid.
 An explicitly requested `multilabel` task accepts any positive class count and
 is never inferred from output dimensions.
+Specify `class_to_index` or `positive_class` when binary class polarity matters;
+the legacy `target` = 1 mapping is retained, while other two-class datasets
+without an explicit mapping use class-list order (0, 1).
 
 ```python
 from bioacoustics_dl_toolbox import TaskConfig, resolve_task_type
@@ -113,7 +116,7 @@ Single-label ROC/confusion and per-sample class-image summaries remain disabled
 for multi-label tasks; metrics with `supports_multilabel = True` can opt in.
 The standalone sliding-window predictor is described below (SPEC-06).
 Calibrated multilabel thresholds can be saved as optional v2 checkpoint metadata
-(SPEC-07); binary positive-class mapping is addressed separately in SPEC-08.
+(SPEC-07); binary class mapping follows the rules above (SPEC-08).
 
 ## Prediction (preprocessing)
 

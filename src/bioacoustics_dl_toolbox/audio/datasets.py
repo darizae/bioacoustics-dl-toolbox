@@ -511,12 +511,16 @@ class SpectrogramDataset(AudioDataset):
         and repetitions within an item count only once. A bare string is not a
         valid per-item multilabel annotation; filename parsing is single-label only.
     class_to_index:
-        Explicit mapping from class name to integer index.  When provided
-        this takes precedence over automatic mapping.
+        Explicit mapping from every class name to a unique, contiguous integer
+        index. Takes precedence over automatic mapping; if ``positive_class``
+        is also provided, the two settings must agree.
     positive_class:
-        For binary classification only.  The class name to map to index 1.
-        The other class maps to 0.  Ignored when ``class_to_index`` is given
-        or ``num_classes != 2``.
+        For binary classification only. Maps this declared class to index 1
+        and the other class to 0. If omitted, binary classes named ``target``
+        retain the ANIMAL-SPOT convention (``target`` = 1). Otherwise binary
+        mapping follows class-list order (first = 0, second = 1).
+        Multilabel and multiclass tasks always use class-list order unless an
+        explicit ``class_to_index`` is provided.
     cache_dir:
         Optional directory for caching computed spectrograms.
     dataset_name:
@@ -558,7 +562,7 @@ class SpectrogramDataset(AudioDataset):
         self.spec_config = spec_config
         self.norm_config = norm_config
         self.aug_config = aug_config
-        if any(not isinstance(name, str) or not name for name in classes):
+        if any(not isinstance(name, str) or not name.strip() for name in classes):
             raise ValueError("classes must contain nonempty class names")
         if len(set(classes)) != len(classes):
             raise ValueError("classes must not contain duplicate class declarations")
@@ -586,7 +590,7 @@ class SpectrogramDataset(AudioDataset):
 
         logger.debug("Number of files: {}".format(len(self.file_names)))
 
-        self.class_dist_dict: dict[str, int] = {}
+        # Validate explicit mapping first: caller-specified indices always win.
         if class_to_index is not None:
             if (
                 not isinstance(class_to_index, Mapping)
@@ -601,19 +605,36 @@ class SpectrogramDataset(AudioDataset):
                     "class_to_index must map every declared class once "
                     "to distinct indices 0..C-1"
                 )
+        if positive_class is not None:
+            if self.task_type != "binary":
+                raise ValueError("positive_class is supported only for binary classification")
+            if positive_class not in self.classes:
+                raise ValueError(
+                    f"positive_class {positive_class!r} is not among declared classes "
+                    f"{self.classes!r}"
+                )
+            if class_to_index is not None and class_to_index[positive_class] != 1:
+                raise ValueError(
+                    f"positive_class {positive_class!r} conflicts with class_to_index: "
+                    "the positive class must have index 1"
+                )
+
+        if class_to_index is not None:
             self.class_dist_dict = dict(class_to_index)
-        elif self.task_type == "multilabel":
-            self.class_dist_dict = {name: idx for idx, name in enumerate(self.classes)}
-        elif self.num_classes == 2 and positive_class is not None:
-            for class_val in self.classes:
-                self.class_dist_dict[class_val] = 1 if class_val == positive_class else 0
-        elif self.num_classes == 2:
-            # Legacy ANIMAL-SPOT default: "target" → 1, everything else → 0
-            for class_val in self.classes:
-                self.class_dist_dict[class_val] = 1 if class_val == "target" else 0
+        elif self.task_type == "binary" and positive_class is not None:
+            self.class_dist_dict = {name: 1 if name == positive_class else 0 for name in self.classes}
+        elif self.task_type == "binary" and "target" in self.classes:
+            # Preserve ANIMAL-SPOT's binary target=1 convention, independent of order.
+            self.class_dist_dict = {name: 1 if name == "target" else 0 for name in self.classes}
         else:
-            for class_idx in range(len(self.classes)):
-                self.class_dist_dict[self.classes[class_idx]] = class_idx
+            # Default mapping for other single-label tasks and *all* multilabel tasks.
+            self.class_dist_dict = {name: idx for idx, name in enumerate(self.classes)}
+            if self.task_type == "binary":
+                logger.info(
+                    "Binary classes have no 'target' or explicit polarity; using "
+                    "class-list order for class_to_index: %s",
+                    self.class_dist_dict,
+                )
 
         # Validate all supplied annotations at construction time, before reading
         # audio. Store each multilabel item as a deduplicated tuple of names.
@@ -636,8 +657,7 @@ class SpectrogramDataset(AudioDataset):
             self.labels = normalized
         elif self.labels is not None:
             for name in self.labels:
-                if not isinstance(name, str) or name not in self.class_dist_dict:
-                    raise ValueError(f"unknown single-label class: {name!r}")
+                self._class_index_for_name(name)
 
         calls: dict[int, int] = defaultdict(int)
         for index, file_name in enumerate(self.file_names):
@@ -764,15 +784,20 @@ class SpectrogramDataset(AudioDataset):
             "call": self._get_class_index(file_name, index),
         }
 
+    def _class_index_for_name(self, name: Any) -> int:
+        if not isinstance(name, str) or name not in self.class_dist_dict:
+            raise ValueError(
+                f"unknown single-label class: {name!r}; declared classes: {self.classes!r}"
+            )
+        return self.class_dist_dict[name]
+
     def _get_class_index(self, file_name: str, index: int) -> int:
         if self.task_type == "multilabel":
             raise ValueError("class indices are only available for single-label tasks")
         class_name = (
             self.labels[index] if self.labels is not None else self.label_extractor(file_name)
         )
-        if class_name not in self.class_dist_dict:
-            raise ValueError(f"unknown single-label class: {class_name!r}")
-        return self.class_dist_dict[class_name]
+        return self._class_index_for_name(class_name)
 
     def get_class_name_from_index(self, idx: int) -> str:
         for name, index in self.class_dist_dict.items():

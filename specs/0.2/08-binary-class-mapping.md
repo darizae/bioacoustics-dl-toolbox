@@ -1,6 +1,6 @@
 # SPEC-08 — Eliminate silent binary class-map collapse
 
-**Status:** Planned · **Priority:** P1 · **Dependencies:** SPEC-03 · **Target:** v0.2.0
+**Status:** Implemented · **Priority:** P1 · **Dependencies:** SPEC-03 · **Target:** v0.2.0 · **Unit tests:** `tests/test_class_mapping.py` · **Commit:** pending (patch delivery)
 
 ## Problem / evidence
 
@@ -27,11 +27,11 @@ File: `tests/test_class_mapping.py`. Instantiate datasets with synthetic filenam
 
 ## Acceptance criteria
 
-- [ ] Valid binary mappings are bijections over `{0,1}`.
-- [ ] Legacy `target` preference remains correct.
-- [ ] Non-target class pairs are no longer silently collapsed.
-- [ ] Validation errors reveal configuration problems early.
-- [ ] All added tests are **unit tests**.
+- [x] Valid binary mappings are bijections over `{0,1}`.
+- [x] Legacy `target` preference remains correct.
+- [x] Non-target class pairs are no longer silently collapsed.
+- [x] Validation errors reveal configuration problems early.
+- [x] All added tests are **unit tests**.
 
 ## Documentation and release notes
 
