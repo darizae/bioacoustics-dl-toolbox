@@ -12,6 +12,12 @@ adapted from [ANIMAL-SPOT](https://github.com/ChristianBergler/ANIMAL-SPOT), an
 animal-independent ResNet-based bioacoustic classification framework. See
 [`NOTICE.md`](NOTICE.md) for attribution and the research citation.
 
+## Roadmap and release notes
+
+- [**v0.2.0 implementation plan and agent onboarding**](0.2_VERSION.md) — specifications only; proposed changes are **not yet implemented**.
+- [**v0.2.0 workstream specifications**](specs/0.2/) — one spec per change, with unit-test acceptance criteria.
+- [**Release notes**](RELEASE_NOTES.md) — ongoing change log, including explicitly marked planned work.
+
 ## Install locally
 
 ```bash
