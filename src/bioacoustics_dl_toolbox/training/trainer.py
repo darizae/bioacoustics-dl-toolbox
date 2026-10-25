@@ -17,6 +17,7 @@ import math
 import operator
 import platform
 import time
+from collections.abc import Sequence
 from typing import Any, Callable
 
 import numpy as np
@@ -27,6 +28,10 @@ from bioacoustics_dl_toolbox.config import ResolvedTaskType, TaskConfig, resolve
 from bioacoustics_dl_toolbox.metrics.auc import AUCMeter
 from bioacoustics_dl_toolbox.metrics.confusion import ConfusionMeter
 from bioacoustics_dl_toolbox.metrics.core import Mean, MetricBase, Sum
+from bioacoustics_dl_toolbox.metrics.multilabel import (
+    multilabel_probabilities,
+    threshold_multilabel,
+)
 from bioacoustics_dl_toolbox.tasks import validate_task_batch
 from bioacoustics_dl_toolbox.training.checkpoints import CheckpointHandler
 from bioacoustics_dl_toolbox.training.early_stopping import EarlyStoppingCriterion
@@ -59,6 +64,9 @@ class Trainer:
     task_config:
         Task contract, defaulting to legacy single-label ``auto`` behavior.
         Explicit multilabel uses multi-hot targets and BCEWithLogitsLoss.
+    multilabel_thresholds:
+        Scalar or class-index-ordered thresholds, strictly between 0 and 1,
+        for independent multi-label decisions (default 0.5).
     """
 
     def __init__(
@@ -72,9 +80,11 @@ class Trainer:
         input_shape: tuple[int, ...] | None = None,
         start_scratch: bool = False,
         task_config: TaskConfig = TaskConfig(),
+        multilabel_thresholds: float | Sequence[float] | torch.Tensor = 0.5,
     ) -> None:
         self.model = model
         self.task_config = task_config
+        self.multilabel_thresholds = multilabel_thresholds
         self.task_type: ResolvedTaskType | None = None
         self._multilabel_warning_emitted = False
         self._multilabel_metrics_warning_emitted = False
@@ -141,6 +151,7 @@ class Trainer:
         self.task_type = self._resolve_loader_task(train_loader, "train")
         train_mapping = getattr(train_loader.dataset, "class_dist_dict", None)
         if self.task_type == "multilabel":
+            threshold_multilabel(torch.empty((0, num_classes)), self.multilabel_thresholds)
             if (
                 train_mapping is None
                 or len(train_mapping) != num_classes
@@ -187,20 +198,18 @@ class Trainer:
         metrics: dict[str, MetricBase] | list[MetricBase],
         task_type: ResolvedTaskType,
     ) -> dict[str, MetricBase] | list[MetricBase]:
-        """Use only explicitly multilabel-capable metrics until SPEC-05 ships.
+        """Use only metrics that explicitly support multi-label targets.
 
-        Opt-in metrics must implement the normal MetricBase reset/update/get
-        interface, accept boolean [B,C] targets and predictions, and set
-        ``supports_multilabel = True``. Other metrics are not logged because
-        single-label scores may have a different meaning in multilabel tasks.
+        ``MultiLabelMetrics`` implements the existing reset/update/get API
+        with corpus-wide counters, including named micro/macro scores. Other
+        metrics must opt in with ``supports_multilabel = True``.
         """
         if task_type != "multilabel":
             return metrics
         if not self._multilabel_warning_emitted:
             self.logger.warning(
                 "Multilabel ROC/confusion and per-sample class image summaries are disabled; "
-                "SPEC-05 metrics are not yet included. Only metrics explicitly declaring "
-                "supports_multilabel=True will be logged."
+                "only metrics declaring supports_multilabel=True are logged."
             )
             self._multilabel_warning_emitted = True
         if isinstance(metrics, dict):
@@ -226,10 +235,14 @@ class Trainer:
         return raw_label.to(device, non_blocking=True, dtype=dtype)
 
     @staticmethod
-    def _task_predictions(output: torch.Tensor, task_type: ResolvedTaskType) -> torch.Tensor:
+    def _task_predictions(
+        output: torch.Tensor,
+        task_type: ResolvedTaskType,
+        thresholds: float | Sequence[float] | torch.Tensor = 0.5,
+    ) -> torch.Tensor:
         if task_type == "multilabel":
-            # No argmax: several classes (or none) may be active per example.
-            return torch.sigmoid(output.detach()) >= 0.5
+            # Keep independent probabilities separate from boolean decisions.
+            return threshold_multilabel(multilabel_probabilities(output.detach()), thresholds)
         return torch.argmax(output.detach(), dim=1)
 
     def fit(
@@ -464,7 +477,9 @@ class Trainer:
 
             prediction: torch.Tensor | None = None
             if call_label is not None:
-                prediction = self._task_predictions(output, task_type)
+                prediction = self._task_predictions(
+                    output, task_type, self.multilabel_thresholds
+                )
                 metric_targets = call_label.bool() if task_type == "multilabel" else call_label
                 self._update_metrics(active_metrics, metric_targets, prediction)
                 if auc is not None:
@@ -554,7 +569,9 @@ class Trainer:
 
                 prediction: torch.Tensor | None = None
                 if call_label is not None:
-                    prediction = self._task_predictions(output, task_type)
+                    prediction = self._task_predictions(
+                        output, task_type, self.multilabel_thresholds
+                    )
                     metric_targets = call_label.bool() if task_type == "multilabel" else call_label
                     self._update_metrics(active_metrics, metric_targets, prediction)
                     if auc is not None:

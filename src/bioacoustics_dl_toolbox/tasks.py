@@ -1,8 +1,8 @@
 """Canonical tensor shape and dtype checks for classification tasks.
 
 Probability conversion follows the task contract: single-label tasks use
-softmax/argmax, while multilabel uses sigmoid/independent thresholds. Full
-multilabel postprocessing and metrics are introduced in SPEC-05.
+softmax/argmax, while multilabel uses sigmoid/independent thresholds. Multilabel
+postprocessing and streaming metrics live in ``metrics.multilabel``.
 """
 
 from __future__ import annotations

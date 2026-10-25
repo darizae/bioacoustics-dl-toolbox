@@ -1,6 +1,6 @@
 # SPEC-05 — Independent probabilities, thresholds, and multi-label metrics
 
-**Status:** Planned · **Priority:** P1 · **Dependencies:** SPEC-03; coordinate with SPEC-04 · **Target:** v0.2.0
+**Status:** Implemented · **Unit tests:** `tests/test_multilabel_metrics.py` · **Commit:** pending (patch delivery) · **Priority:** P1 · **Dependencies:** SPEC-03; coordinate with SPEC-04 · **Target:** v0.2.0
 
 ## Problem / evidence
 
@@ -27,10 +27,10 @@ File: `tests/test_multilabel_metrics.py`; use tiny hand-computed tensors.
 
 ## Acceptance criteria
 
-- [ ] Independent class probabilities and inclusive thresholds work for arbitrary C.
-- [ ] Micro/macro metrics are computed from accumulated counts, with defined zero-support behavior.
-- [ ] Multi-label task mode never reports mutually exclusive confusion/AUC as though it were valid.
-- [ ] Unit tests run without optional visualization dependencies.
+- [x] Independent class probabilities and inclusive thresholds work for arbitrary C.
+- [x] Micro/macro metrics are computed from accumulated counts, with defined zero-support behavior.
+- [x] Multi-label task mode never reports mutually exclusive confusion/AUC as though it were valid.
+- [x] Unit tests run without optional visualization dependencies.
 
 ## Documentation and release notes
 

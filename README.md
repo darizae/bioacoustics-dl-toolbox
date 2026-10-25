@@ -82,12 +82,37 @@ loss_fn = torch.nn.BCEWithLogitsLoss()  # pass to trainer.fit(...)
 
 Use one validated `class_to_index` mapping (indices `0..C-1`) for training,
 validation, and testing. Multilabel targets are float32 `[B, C]` multi-hot
-vectors; **never apply sigmoid before `BCEWithLogitsLoss`**. Multilabel loss and
-early stopping work now; independent threshold utilities and aggregate metrics
-are planned for SPEC-05. Until then, single-label ROC/confusion and per-sample
-class-image summaries are disabled, with a warning. Explicit custom streaming
-metrics can opt in with `supports_multilabel = True` and must accept boolean
-`[B, C]` target and prediction tensors (sigmoid thresholded at `>= 0.5`).
+vectors; **never apply sigmoid before `BCEWithLogitsLoss`**. For multi-label
+inference, call `multilabel_probabilities(logits)` to obtain independent sigmoid
+probabilities, then `threshold_multilabel(probabilities, thresholds=0.5)` for
+boolean decisions (inclusive `>=`, with a scalar or per-class threshold vector
+in `class_to_index` order). Probabilities and decisions remain separate.
+`MultiLabelMetrics` streams per-class TP/FP/TN/FN and support across batches;
+available scalar scores are `micro_precision`, `micro_recall`, `micro_f1`,
+`macro_precision`, `macro_recall`, and `macro_f1`. Zero-denominator scores are 0,
+and macro averages include unsupported classes.
+
+```python
+from bioacoustics_dl_toolbox.metrics import (
+    MultiLabelMetrics, multilabel_probabilities, threshold_multilabel,
+)
+
+probabilities = multilabel_probabilities(logits)  # shape [B, C], no softmax
+predictions = threshold_multilabel(probabilities, [0.5, 0.7, 0.6])
+metric = MultiLabelMetrics(num_classes=3, score="macro_f1")
+metric.update(targets, predictions)  # repeat for every batch
+scores_and_counts = metric.compute()  # class-index-ordered per_class breakdown
+
+# Use with Trainer.fit(metrics={"macro_f1": metric},
+#                      val_metric="macro_f1", val_metric_mode="max").
+# Trainer(..., multilabel_thresholds=[0.5, 0.7, 0.6]) applies the same
+# thresholds when making decisions during train/validation/test epochs.
+```
+
+Single-label ROC/confusion and per-sample class-image summaries remain disabled
+for multi-label tasks; metrics with `supports_multilabel = True` can opt in.
+The standalone sliding-window predictor and checkpoint threshold metadata are
+separate planned workstreams (SPEC-06 and SPEC-07), not yet shipped.
 Binary positive-class mapping is addressed separately in SPEC-08.
 
 ## Prediction (preprocessing)
