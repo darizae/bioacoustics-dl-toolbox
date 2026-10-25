@@ -10,9 +10,17 @@ from bioacoustics_dl_toolbox.audio.datasets import (
     get_broken_audio_files,
 )
 from bioacoustics_dl_toolbox.audio.io import load_audio_file
+from bioacoustics_dl_toolbox.audio.preprocessing import (
+    FeaturePreprocessor,
+    build_feature_preprocessor,
+    spectrogram_frames_for_samples,
+)
 
 __all__ = [
     "load_audio_file",
+    "FeaturePreprocessor",
+    "build_feature_preprocessor",
+    "spectrogram_frames_for_samples",
     "AudioDataset",
     "SpectrogramDataset",
     "StridedAudioDataset",

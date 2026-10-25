@@ -16,6 +16,7 @@ _None yet._
 ### Fixed
 
 - **SPEC-01:** Fixed `CsvSplit` boundaries so train/validation/test partitions cover every input exactly once, including deterministic handling of seed `0` and reliable CSV reuse.
+- **SPEC-02:** Unified deterministic training/prediction feature processing and corrected MFCC inference to avoid applying decibel conversion twice.
 
 ### Deprecated / Removed
 
@@ -23,7 +24,15 @@ _None yet._
 
 ### Migration notes
 
-_None yet._
+- **SPEC-02:** Previously saved MFCC models were trained on the `M2MFCC` output
+  without a second dB conversion, but the old inference path applied `Amp2Db`
+  again. Re-run inference with the original `SpectrogramConfig`,
+  `NormalizationConfig`, and matching sample-window length to obtain predictions
+  consistent with training. Output scores/decisions can change relative to
+  old predictions; re-evaluate any downstream thresholds against validation
+  data. This correction does **not** require retraining or change the model's
+  32-coefficient MFCC input shape. Linear/mel features and cached power
+  spectrogram format are unchanged.
 
 ### Planned for 0.2.0 — not implemented
 
@@ -31,7 +40,6 @@ The following are proposals, **not released changes**. Each workstream provides 
 
 | Spec | Planned work |
 | --- | --- |
-| [02](specs/0.2/02-preprocessing-parity.md) | Consistent spectrogram/MFCC preprocessing in training and inference |
 | [05](specs/0.2/05-multilabel-metrics.md) | Per-label probabilities, thresholds, and micro/macro metrics |
 | [06](specs/0.2/06-predictor.md) | Reusable sliding-window prediction API |
 | [07](specs/0.2/07-checkpoint-metadata.md) | Versioned optional task and inference metadata with legacy loading |

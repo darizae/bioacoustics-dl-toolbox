@@ -1,6 +1,6 @@
 # SPEC-02 — Guarantee feature parity between training and prediction
 
-**Status:** Planned · **Priority:** P0 · **Dependencies:** None · **Target:** v0.2.0
+**Status:** Implemented in supplied patch (commit pending after application; tests: `tests/test_preprocessing.py`) · **Priority:** P0 · **Dependencies:** None · **Target:** v0.2.0
 
 ## Problem / evidence
 
@@ -28,11 +28,11 @@ File: `tests/test_preprocessing.py`. Use synthetic fixed waveforms; monkeypatch 
 
 ## Acceptance criteria
 
-- [ ] A shared deterministic transform is used by both dataset paths.
-- [ ] No MFCC double-dB step; linear/mel paths retain their dB operation.
-- [ ] Short-window feature geometry is explicitly defined and tested.
-- [ ] No unexpected dependency or model architecture change.
-- [ ] Listed **unit tests** pass; no integration tests introduced.
+- [x] A shared deterministic transform is used by both dataset paths.
+- [x] No MFCC double-dB step; linear/mel paths retain their dB operation.
+- [x] Short-window feature geometry is explicitly defined and tested.
+- [x] No unexpected dependency or model architecture change.
+- [x] Listed **unit tests** pass; no integration tests introduced.
 
 ## Documentation and release notes
 
@@ -43,3 +43,10 @@ File: `tests/test_preprocessing.py`. Use synthetic fixed waveforms; monkeypatch 
 > **SPEC-02:** Unified deterministic training/prediction feature processing and corrected MFCC inference to avoid applying decibel conversion twice.
 
 If the correction changes results for previously saved models, document that inference behavior change and mitigation under Migration notes, then mark this spec Implemented with tests/commit.
+
+**Verification (patch working copy, 2026-10-25):** `tests/test_preprocessing.py`
+passes, as does the full pytest suite (121 tests). This sandbox could not
+install `resampy`, so the test run used an external import-only shim for the
+missing existing dependency; no shim is included in the patch. `ruff` was not
+available for verification. Record the commit hash here after the patch is
+committed in the target repository.

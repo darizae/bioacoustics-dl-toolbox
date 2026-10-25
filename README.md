@@ -90,6 +90,38 @@ metrics can opt in with `supports_multilabel = True` and must accept boolean
 `[B, C]` target and prediction tensors (sigmoid thresholded at `>= 0.5`).
 Binary positive-class mapping is addressed separately in SPEC-08.
 
+## Prediction (preprocessing)
+
+`SpectrogramDataset` (training/validation) and `StridedAudioDataset` (windowed
+inference) use the same deterministic `build_feature_preprocessor(spec_config,
+norm_config)` stages: mono/resampled audio → pre-emphasis → power STFT
+(`center=False`) → linear/mel/MFCC frequency representation → normalization.
+Linear and mel representations apply `Amp2Db` before normalization; MFCC uses
+`F2M → M2MFCC(n_mfcc=32)` **without a second dB conversion**. The default
+feature layout remains `[channel, time_frames, frequency_bins]` (32 output bins
+for MFCC). Only training with `aug_config.enabled=True` adds stochastic
+spectrogram augmentation; validation and prediction must leave it disabled.
+
+Use identical `SpectrogramConfig`, `NormalizationConfig`, and sample-window
+length for training/validation and prediction. Training's `sequence_length`
+is **feature frames**, while inference's `sequence_len` is **audio samples**.
+For a window of `N` samples, match the frame count with:
+
+```python
+from bioacoustics_dl_toolbox.audio import spectrogram_frames_for_samples
+
+sequence_length = spectrogram_frames_for_samples(N, spec_config)
+# Pass sequence_length to SpectrogramDataset; pass N as sequence_len to
+# StridedAudioDataset (with the same spec_config and norm_config).
+```
+
+Audio shorter than `n_fft` is cyclically repeated and center-trimmed to one
+FFT frame (empty audio becomes zero). Shorter-than-sequence-length features
+are symmetrically zero-padded **after** normalization; non-augmented training
+center-crops longer feature sequences. Inference applies the same frame-padding
+convention to incomplete tail windows. The cached `.spec` files contain only
+pre-compression power spectrograms, so the existing cache format is unchanged.
+
 ## Checkpoint contract
 
 `save_model` writes the established six-key `trained_model.pt` payload:

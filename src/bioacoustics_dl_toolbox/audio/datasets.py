@@ -29,6 +29,10 @@ import torch.utils.data
 
 from bioacoustics_dl_toolbox.audio import io as audio_io
 from bioacoustics_dl_toolbox.audio import transforms as T
+from bioacoustics_dl_toolbox.audio.preprocessing import (
+    build_feature_preprocessor,
+    spectrogram_frames_for_samples,
+)
 from bioacoustics_dl_toolbox.config import (
     AugmentationConfig,
     NormalizationConfig,
@@ -492,7 +496,10 @@ class SpectrogramDataset(AudioDataset):
     classes:
         List of class names. The class-to-index mapping is built from this.
     sequence_length:
-        Target sequence length in spectrogram time-steps.
+        Target sequence length in spectrogram time-steps. Without augmentation,
+        excess frames are center-cropped and missing frames are center-zero-padded
+        after normalization. Match the corresponding inference window via
+        ``spectrogram_frames_for_samples(window_samples, spec_config)``.
     label_extractor:
         Callable that extracts a class name string from a file path.
         Defaults to ``FilenamePrefixLabelExtractor``.
@@ -569,13 +576,13 @@ class SpectrogramDataset(AudioDataset):
         if self.labels is not None and len(self.labels) != len(self.file_names):
             raise ValueError("labels must contain one annotation per file")
 
-        valid_freq_compressions = ["linear", "mel", "mfcc"]
-        if spec_config.freq_compression not in valid_freq_compressions:
-            raise ValueError(
-                "{} is not a valid freq_compression. Must be one of {}".format(
-                    spec_config.freq_compression, valid_freq_compressions
-                )
-            )
+        self.preprocessing = build_feature_preprocessor(spec_config, norm_config)
+        if (
+            not isinstance(sequence_length, int)
+            or isinstance(sequence_length, bool)
+            or sequence_length <= 0
+        ):
+            raise ValueError("sequence_length must be a positive number of feature frames")
 
         logger.debug("Number of files: {}".format(len(self.file_names)))
 
@@ -648,10 +655,11 @@ class SpectrogramDataset(AudioDataset):
 
         augmentation_enabled = aug_config.enabled
 
+        # Cache only the raw power spectrogram (same v4 format as before).
+        # Frequency compression and normalization are never cached.
         spec_transforms: list[Any] = [
             partial(audio_io.load_audio_file, sample_rate=spec_config.sample_rate),
-            T.PreEmphasize(spec_config.preemphasis),
-            T.Spectrogram(spec_config.n_fft, spec_config.hop_length, center=False),
+            *self.preprocessing.waveform_to_power.transforms,
         ]
 
         self.file_reader = AsyncFileReader()
@@ -681,30 +689,7 @@ class SpectrogramDataset(AudioDataset):
         else:
             logger.debug("Running without augmentation")
 
-        if spec_config.freq_compression == "linear":
-            self.t_compr_f: Any = T.Interpolate(
-                spec_config.n_freq_bins,
-                spec_config.sample_rate,
-                spec_config.f_min,
-                spec_config.f_max,
-            )
-        elif spec_config.freq_compression == "mel":
-            self.t_compr_f = T.F2M(
-                sr=spec_config.sample_rate,
-                n_mels=spec_config.n_freq_bins,
-                f_min=spec_config.f_min,
-                f_max=spec_config.f_max,
-            )
-        elif spec_config.freq_compression == "mfcc":
-            self.t_compr_f = T.Compose(
-                T.F2M(
-                    sr=spec_config.sample_rate,
-                    n_mels=spec_config.n_freq_bins,
-                    f_min=spec_config.f_min,
-                    f_max=spec_config.f_max,
-                )
-            )
-            self.t_compr_mfcc = T.M2MFCC(n_mfcc=32)
+        self.t_compr_f = self.preprocessing.frequency_compression
 
         if augmentation_enabled:
             if aug_config.noise_files:
@@ -723,18 +708,6 @@ class SpectrogramDataset(AudioDataset):
                 logger.debug("No noise augmentation")
         else:
             self.t_addnoise = None
-
-        self.t_compr_a = T.Amp2Db(min_level_db=spec_config.min_level_db)
-
-        if norm_config.mode == "min_max":
-            self.t_norm: Any = T.MinMaxNormalize()
-            logger.debug("Init min-max-normalization activated")
-        else:
-            self.t_norm = T.Normalize(
-                min_level_db=norm_config.min_level_db,
-                ref_level_db=norm_config.ref_level_db,
-            )
-            logger.debug("Init 0/1-dB-normalization activated")
 
         self.t_subseq = T.PaddedSubsequenceSampler(
             sequence_length, dim=1, random=augmentation_enabled
@@ -755,24 +728,17 @@ class SpectrogramDataset(AudioDataset):
             sample = self.t_pitchshift(sample)
             sample = self.t_timestretch(sample)
 
+        # ANIMAL-SPOT augmentation occurs on power before representation.
+        # The same shared post-compression conversion is used by prediction.
         sample = self.t_compr_f(sample)
 
         ground_truth: torch.Tensor | None = None
         if self.augmentation_enabled and self.t_addnoise is not None:
             result = self.t_addnoise(sample)
             sample, ground_truth = result  # type: ignore[misc]
-            if self.spec_config.freq_compression != "mfcc":
-                ground_truth = self.t_compr_a(ground_truth)
-            else:
-                ground_truth = self.t_compr_mfcc(ground_truth)
-            ground_truth = self.t_norm(ground_truth)
+            ground_truth = self.preprocessing.to_features(ground_truth)
 
-        if self.spec_config.freq_compression != "mfcc":
-            sample = self.t_compr_a(sample)
-        else:
-            sample = self.t_compr_mfcc(sample)
-
-        sample = self.t_norm(sample)
+        sample = self.preprocessing.to_features(sample)
 
         if ground_truth is not None:
             stacked = torch.cat((sample, ground_truth), dim=0)
@@ -823,7 +789,9 @@ class StridedAudioDataset(torch.utils.data.Dataset):
     file_name:
         Path to the audio file.
     sequence_len:
-        Window length in samples.
+        Window length in audio samples. The corresponding fixed-length
+        feature frames use ``center=False`` FFT geometry; incomplete tail
+        windows receive centered zero-padding *after* normalization.
     hop:
         Hop length in samples between consecutive windows.
     spec_config:
@@ -840,62 +808,25 @@ class StridedAudioDataset(torch.utils.data.Dataset):
         spec_config: SpectrogramConfig = SpectrogramConfig(),
         norm_config: NormalizationConfig = NormalizationConfig(),
     ) -> None:
+        if (
+            not isinstance(sequence_len, int)
+            or isinstance(sequence_len, bool)
+            or sequence_len <= 0
+        ):
+            raise ValueError("sequence_len must be a positive number of audio samples")
+        if not isinstance(hop, int) or isinstance(hop, bool) or hop <= 0:
+            raise ValueError("hop must be a positive number of audio samples")
+        self.preprocessing = build_feature_preprocessor(spec_config, norm_config)
         self.sequence_len = sequence_len
         self.hop = hop
         self.audio = audio_io.load_audio_file(
             file_name, sample_rate=spec_config.sample_rate, mono=True
         )
         self.n_frames = self.audio.shape[1]
-
-        transform_list: list[Any] = [
-            T.PreEmphasize(spec_config.preemphasis),
-            T.Spectrogram(spec_config.n_fft, spec_config.hop_length, center=False),
-        ]
-
-        if spec_config.freq_compression == "linear":
-            transform_list.append(
-                T.Interpolate(
-                    spec_config.n_freq_bins,
-                    spec_config.sample_rate,
-                    spec_config.f_min,
-                    spec_config.f_max,
-                )
-            )
-        elif spec_config.freq_compression == "mel":
-            transform_list.append(
-                T.F2M(
-                    sr=spec_config.sample_rate,
-                    n_mels=spec_config.n_freq_bins,
-                    f_min=spec_config.f_min,
-                    f_max=spec_config.f_max,
-                )
-            )
-        elif spec_config.freq_compression == "mfcc":
-            t_mel = T.F2M(
-                sr=spec_config.sample_rate,
-                n_mels=spec_config.n_freq_bins,
-                f_min=spec_config.f_min,
-                f_max=spec_config.f_max,
-            )
-            transform_list.append(T.Compose(t_mel, T.M2MFCC()))
-        else:
-            raise ValueError(
-                "Undefined frequency compression: {}".format(spec_config.freq_compression)
-            )
-
-        transform_list.append(T.Amp2Db(min_level_db=spec_config.min_level_db))
-
-        if norm_config.mode == "min_max":
-            transform_list.append(T.MinMaxNormalize())
-        else:
-            transform_list.append(
-                T.Normalize(
-                    min_level_db=norm_config.min_level_db,
-                    ref_level_db=norm_config.ref_level_db,
-                )
-            )
-
-        self.transform_pipeline = T.Compose(transform_list)
+        self.transform_pipeline = self.preprocessing
+        self.t_subseq = T.PaddedSubsequenceSampler(
+            spectrogram_frames_for_samples(sequence_len, spec_config), dim=1, random=False
+        )
 
     def __len__(self) -> int:
         return max(int(ceil((self.n_frames + 1 - self.sequence_len) / self.hop)), 1)
@@ -904,4 +835,4 @@ class StridedAudioDataset(torch.utils.data.Dataset):
         start = idx * self.hop
         end = min(start + self.sequence_len, self.n_frames)
         y = self.audio[:, start:end]
-        return self.transform_pipeline(y)
+        return self.t_subseq(self.transform_pipeline(y))
