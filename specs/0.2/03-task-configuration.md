@@ -1,6 +1,6 @@
 # SPEC-03 — Explicit binary, multiclass, and multilabel task contract
 
-**Status:** Planned · **Priority:** P1 · **Dependencies:** None · **Target:** v0.2.0
+**Status:** Implemented · **Priority:** P1 · **Dependencies:** None · **Target:** v0.2.0 · **Unit tests:** `tests/test_task_config.py` · **Commit:** pending (patch delivery)
 
 ## Problem / evidence
 
@@ -33,10 +33,10 @@ File: `tests/test_task_config.py`.
 
 ## Acceptance criteria
 
-- [ ] One canonical resolver is reused by task-aware modules.
-- [ ] Legacy `auto` output/target shape remains unchanged.
-- [ ] Multi-label must be requested explicitly and cannot be inferred from class count.
-- [ ] Unit tests cover both valid and invalid task contracts.
+- [x] One canonical resolver is reused by task-aware modules.
+- [x] Legacy `auto` output/target shape remains unchanged.
+- [x] Multi-label must be requested explicitly and cannot be inferred from class count.
+- [x] Unit tests cover both valid and invalid task contracts.
 
 ## Documentation and release notes
 

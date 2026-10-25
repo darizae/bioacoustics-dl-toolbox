@@ -7,7 +7,9 @@ from bioacoustics_dl_toolbox.config import (
     EncoderConfig,
     NormalizationConfig,
     SpectrogramConfig,
+    TaskConfig,
     TrainingConfig,
+    resolve_task_type,
 )
 
 __all__ = [
@@ -17,5 +19,7 @@ __all__ = [
     "EncoderConfig",
     "NormalizationConfig",
     "SpectrogramConfig",
+    "TaskConfig",
     "TrainingConfig",
+    "resolve_task_type",
 ]

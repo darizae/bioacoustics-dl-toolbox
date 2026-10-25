@@ -73,6 +73,65 @@ class ClassifierConfig:
     num_classes: int = 2
 
 
+# Resolved task types do not include "auto": they unambiguously describe targets
+# and model outputs for a particular number of classes.
+ResolvedTaskType = Literal["binary", "multiclass", "multilabel"]
+
+
+@dataclass(frozen=True)
+class TaskConfig:
+    """Classification task semantics, independent of classifier architecture.
+
+    ``auto`` retains the established single-label convention: C=2 uses two
+    logits for binary classification, and C>2 uses multiclass classification.
+    Multilabel tasks must be requested explicitly, even when C=2.
+
+    For a batch of size B, logits are always raw ``[B, C]`` values. Binary and
+    multiclass targets are integer class indices ``[B]``; decisions use
+    softmax/argmax. Multilabel targets are floating multi-hot ``[B, C]``;
+    decisions use sigmoid and independent per-class thresholds. No activation
+    belongs in the ``Classifier`` head.
+    """
+
+    task_type: Literal["auto", "binary", "multiclass", "multilabel"] = "auto"
+
+
+def resolve_task_type(task_config: TaskConfig | None, num_classes: int) -> ResolvedTaskType:
+    """Resolve/validate a task without inferring multilabel from class count.
+
+    Raises ``ValueError`` for ambiguous one-class auto tasks and incompatible
+    explicit class counts, before a model or data loader can be used.
+    """
+    if not isinstance(num_classes, int) or isinstance(num_classes, bool) or num_classes < 1:
+        raise ValueError(f"num_classes must be a positive integer; got {num_classes!r}")
+    if task_config is None:
+        task_config = TaskConfig()
+    if not isinstance(task_config, TaskConfig):
+        raise ValueError("task_config must be a TaskConfig instance or None")
+
+    task_type = task_config.task_type
+    if task_type == "auto":
+        if num_classes == 1:
+            raise ValueError(
+                "task_type='auto' does not support num_classes=1; "
+                "choose task_type='multilabel' explicitly for a one-output model"
+            )
+        return "binary" if num_classes == 2 else "multiclass"
+    if task_type == "binary":
+        if num_classes != 2:
+            raise ValueError("task_type='binary' requires exactly 2 classes (2 logits)")
+        return "binary"
+    if task_type == "multiclass":
+        if num_classes < 2:
+            raise ValueError("task_type='multiclass' requires at least 2 classes")
+        return "multiclass"
+    if task_type == "multilabel":
+        return "multilabel"
+    raise ValueError(
+        f"Unknown task_type {task_type!r}; expected auto, binary, multiclass, or multilabel"
+    )
+
+
 @dataclass(frozen=True)
 class DatasetConfig:
     """Configuration for dataset construction and splitting."""

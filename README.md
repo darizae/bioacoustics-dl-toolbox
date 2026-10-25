@@ -36,6 +36,31 @@ TensorBoard summaries and plotting are optional:
 python -m pip install -e '/path/to/bioacoustics-dl-toolbox[summaries,visualization]'
 ```
 
+## Classification tasks
+
+`TaskConfig` makes the classification task explicit while preserving the legacy
+single-label behavior. `auto` resolves two classes to **binary with two raw
+logits** and more than two classes to **multiclass**; one-class `auto` is invalid.
+An explicitly requested `multilabel` task accepts any positive class count and
+is never inferred from output dimensions.
+
+```python
+from bioacoustics_dl_toolbox import TaskConfig, resolve_task_type
+
+legacy = TaskConfig()  # auto: two classes -> binary, still two logits
+assert resolve_task_type(legacy, num_classes=2) == "binary"
+multilabel = TaskConfig(task_type="multilabel")
+assert resolve_task_type(multilabel, num_classes=2) == "multilabel"
+```
+
+Pass the same `task_config` to `SpectrogramDataset` and `Trainer`. All classifiers
+emit raw `[B, C]` logits, without a built-in activation. Binary and multiclass
+use integer `[B]` targets and softmax/argmax decisions; multilabel uses float
+multi-hot `[B, C]` targets and per-class sigmoid/threshold decisions. **Multilabel
+data annotations and trainer support are not implemented yet** (SPEC-04), and
+independent probability/threshold helpers and metrics are planned for SPEC-05.
+Binary positive-class mapping is addressed separately in SPEC-08.
+
 ## Checkpoint contract
 
 `save_model` writes the established six-key `trained_model.pt` payload:

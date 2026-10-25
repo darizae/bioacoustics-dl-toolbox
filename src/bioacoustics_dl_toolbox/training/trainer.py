@@ -23,9 +23,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from bioacoustics_dl_toolbox.config import ResolvedTaskType, TaskConfig, resolve_task_type
 from bioacoustics_dl_toolbox.metrics.auc import AUCMeter
 from bioacoustics_dl_toolbox.metrics.confusion import ConfusionMeter
 from bioacoustics_dl_toolbox.metrics.core import Mean, MetricBase, Sum
+from bioacoustics_dl_toolbox.tasks import validate_task_batch
 from bioacoustics_dl_toolbox.training.checkpoints import CheckpointHandler
 from bioacoustics_dl_toolbox.training.early_stopping import EarlyStoppingCriterion
 
@@ -54,6 +56,9 @@ class Trainer:
         Number of sample images to write per epoch.
     start_scratch:
         If ``True``, ignore existing checkpoints.
+    task_config:
+        Task contract, defaulting to legacy single-label ``auto`` behavior.
+        Multi-hot training is added separately in SPEC-04.
     """
 
     def __init__(
@@ -66,8 +71,11 @@ class Trainer:
         n_summaries: int = 4,
         input_shape: tuple[int, ...] | None = None,
         start_scratch: bool = False,
+        task_config: TaskConfig = TaskConfig(),
     ) -> None:
         self.model = model
+        self.task_config = task_config
+        self.task_type: ResolvedTaskType | None = None
         self.logger = logger
         self.prefix = prefix
         self.n_summaries = n_summaries
@@ -100,6 +108,66 @@ class Trainer:
         self.start_scratch = start_scratch
         self.class_dist_dict: dict[str, int] | None = None
 
+    def _resolve_loader_task(
+        self, loader: torch.utils.data.DataLoader, phase: str
+    ) -> ResolvedTaskType:
+        """Check the loader's resolved task against this trainer's task."""
+        num_classes = loader.dataset.num_classes  # type: ignore[union-attr]
+        trainer_type = resolve_task_type(self.task_config, num_classes)
+        dataset_config = getattr(loader.dataset, "task_config", TaskConfig())
+        dataset_type = resolve_task_type(dataset_config, num_classes)
+        if trainer_type != dataset_type:
+            raise ValueError(
+                f"{phase} dataset task '{dataset_type}' does not match trainer task "
+                f"'{trainer_type}'; pass a consistent task_config to both"
+            )
+        if self.task_type is not None and dataset_type != self.task_type:
+            raise ValueError(
+                f"{phase} dataset task '{dataset_type}' does not match "
+                f"the training task '{self.task_type}'"
+            )
+        if dataset_type == "multilabel":
+            raise ValueError(
+                "Trainer does not yet support multilabel targets or BCE-with-logits; "
+                "multilabel training requires SPEC-04"
+            )
+        return dataset_type
+
+    def _validate_task_setup(
+        self,
+        train_loader: torch.utils.data.DataLoader,
+        val_loader: torch.utils.data.DataLoader,
+        test_loader: torch.utils.data.DataLoader | None,
+    ) -> None:
+        """Reject mismatched datasets/classifier before beginning training."""
+        num_classes = train_loader.dataset.num_classes  # type: ignore[union-attr]
+        self.task_type = self._resolve_loader_task(train_loader, "train")
+        train_mapping = getattr(train_loader.dataset, "class_dist_dict", None)
+        for phase, loader in (("val", val_loader), ("test", test_loader)):
+            if loader is None:
+                continue
+            count = loader.dataset.num_classes  # type: ignore[union-attr]
+            if count != num_classes:
+                raise ValueError(
+                    f"{phase} dataset has {count} classes; train dataset has {num_classes}"
+                )
+            self._resolve_loader_task(loader, phase)
+            mapping = getattr(loader.dataset, "class_dist_dict", None)
+            if train_mapping is not None and mapping is not None and mapping != train_mapping:
+                raise ValueError(f"{phase} dataset class_to_index differs from train dataset")
+
+        head = (
+            self.model[-1]
+            if isinstance(self.model, nn.Sequential) and len(self.model)
+            else self.model
+        )
+        configured_classes = getattr(getattr(head, "config", None), "num_classes", None)
+        if configured_classes is not None and configured_classes != num_classes:
+            raise ValueError(
+                f"Classifier output num_classes={configured_classes} does not match "
+                f"dataset num_classes={num_classes}"
+            )
+
     def fit(
         self,
         train_loader: torch.utils.data.DataLoader,
@@ -123,6 +191,7 @@ class Trainer:
 
         Returns the model loaded with the best validation weights.
         """
+        self._validate_task_setup(train_loader, val_loader, test_loader)
         checkpoint = checkpoint or (lambda: None)
         epoch_callback = epoch_callback or (lambda _current, _total, _phase: None)
         self.logger.info("Init model on device '{}'".format(device))
@@ -142,6 +211,12 @@ class Trainer:
         if not self.start_scratch and self.checkpoint_handler is not None:
             saved_checkpoint = self.checkpoint_handler.read_latest()
             if saved_checkpoint is not None:
+                saved_task = saved_checkpoint.get("taskType")
+                if saved_task is not None and saved_task != self.task_type:
+                    raise ValueError(
+                        f"Resume checkpoint task '{saved_task}' does not match "
+                        f"trainer task '{self.task_type}'"
+                    )
                 try:
                     try:
                         self.model.load_state_dict(saved_checkpoint["modelState"])
@@ -208,6 +283,7 @@ class Trainer:
                                     "scheduler": scheduler.state_dict(),
                                 },
                                 "classes": self.class_dist_dict,
+                                "taskType": self.task_type,
                             }
                         )
 
@@ -274,7 +350,8 @@ class Trainer:
         epoch_loss = Mean(device)
 
         num_classes = train_loader.dataset.num_classes  # type: ignore[union-attr]
-        if num_classes == 2:
+        task_type = self._resolve_loader_task(train_loader, "train")
+        if task_type == "binary":
             auc: AUCMeter | None = AUCMeter()
             confusion: ConfusionMeter | None = None
         else:
@@ -284,14 +361,19 @@ class Trainer:
         for i, (features, label) in enumerate(train_loader):
             checkpoint()
             features = features.to(device)
-            call_label: torch.Tensor | None = None
-            if "call" in label:
-                call_label = label["call"].to(device, non_blocking=True, dtype=torch.int64)
+            raw_label: torch.Tensor | None = label.get("call")
+            call_label = (
+                raw_label.to(device, non_blocking=True, dtype=torch.int64)
+                if raw_label is not None
+                else None
+            )
 
             data_loading_time.update(torch.Tensor([(time.time() - start_data_loading)]))
 
             optimizer.zero_grad()
             output = self.model(features)
+            if raw_label is not None:
+                validate_task_batch(output, raw_label, self.task_config, num_classes)
             loss = loss_fn(output, call_label)
             loss.backward()
             optimizer.step()
@@ -358,7 +440,8 @@ class Trainer:
             epoch_loss = Mean(device)
 
             num_classes = test_loader.dataset.num_classes  # type: ignore[union-attr]
-            if num_classes == 2:
+            task_type = self._resolve_loader_task(test_loader, phase)
+            if task_type == "binary":
                 auc: AUCMeter | None = AUCMeter()
                 confusion: ConfusionMeter | None = None
             else:
@@ -368,13 +451,18 @@ class Trainer:
             for i, (features, label) in enumerate(test_loader):
                 checkpoint()
                 features = features.to(device)
-                call_label: torch.Tensor | None = None
-                if "call" in label:
-                    call_label = label["call"].to(device, non_blocking=True, dtype=torch.int64)
+                raw_label: torch.Tensor | None = label.get("call")
+                call_label = (
+                    raw_label.to(device, non_blocking=True, dtype=torch.int64)
+                    if raw_label is not None
+                    else None
+                )
 
                 data_loading_time.update(torch.Tensor([(time.time() - start_data_loading)]))
 
                 output = self.model(features)
+                if raw_label is not None:
+                    validate_task_batch(output, raw_label, self.task_config, num_classes)
                 loss = loss_fn(output, call_label)
                 epoch_loss.update(loss)
 

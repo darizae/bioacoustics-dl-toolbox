@@ -33,6 +33,8 @@ from bioacoustics_dl_toolbox.config import (
     AugmentationConfig,
     NormalizationConfig,
     SpectrogramConfig,
+    TaskConfig,
+    resolve_task_type,
 )
 from bioacoustics_dl_toolbox.io.async_file import AsyncFileReader
 
@@ -508,6 +510,9 @@ class SpectrogramDataset(AudioDataset):
         Optional directory for caching computed spectrograms.
     dataset_name:
         Name for logging.
+    task_config:
+        Task semantics. Defaults to legacy single-label auto behavior. Multi-hot
+        dataset targets are added separately in SPEC-04.
     """
 
     def __init__(
@@ -525,6 +530,7 @@ class SpectrogramDataset(AudioDataset):
         positive_class: str | None = None,
         cache_dir: str | None = None,
         dataset_name: str | None = None,
+        task_config: TaskConfig = TaskConfig(),
     ) -> None:
         super().__init__(
             file_names,
@@ -543,6 +549,14 @@ class SpectrogramDataset(AudioDataset):
         self.aug_config = aug_config
         self.classes = classes
         self.num_classes = len(classes)
+        self.task_config = task_config
+        self.task_type = resolve_task_type(task_config, self.num_classes)
+        if self.task_type == "multilabel":
+            raise ValueError(
+                "SpectrogramDataset does not yet support multilabel targets; "
+                "multi-hot annotations require SPEC-04. Do not use single-label targets "
+                "with a multilabel task."
+            )
         self.label_extractor = label_extractor or FilenamePrefixLabelExtractor()
         self.labels = None if labels is None else list(labels)
         if self.labels is not None and len(self.labels) != len(self.file_names):
