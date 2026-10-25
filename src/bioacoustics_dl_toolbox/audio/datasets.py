@@ -17,7 +17,8 @@ import os
 import pathlib
 import random
 from collections import defaultdict
-from collections.abc import Iterable as IterableABC, Mapping
+from collections.abc import Iterable as IterableABC
+from collections.abc import Mapping
 from functools import partial
 from math import floor, fsum, isclose, isfinite
 from typing import Any, Callable, Dict, Iterable, List, Protocol
@@ -231,14 +232,15 @@ class CsvSplit:
                         # Earlier per-directory CSVs sometimes contain just a
                         # basename. Resolve those against the directory holding
                         # the CSV; full relative paths are kept verbatim.
-                        if (
-                            self.split_per_dir
-                            and pathlib.Path(identifier).parent == pathlib.Path(".")
+                        if self.split_per_dir and pathlib.Path(identifier).parent == pathlib.Path(
+                            "."
                         ):
                             parent = csv_path.parent.resolve().relative_to(root.resolve())
                             identifier = str(parent / identifier)
                         if identifier in seen:
-                            raise ValueError(f"Duplicate file identifier in saved CSVs: {identifier!r}")
+                            raise ValueError(
+                                f"Duplicate file identifier in saved CSVs: {identifier!r}"
+                            )
                         seen.add(identifier)
                         splits[split].append(identifier)
         for split, fraction in self.split_fracs.items():
@@ -310,9 +312,7 @@ class CsvSplit:
                     return False
                 for csv_path in self._csv_files_for_split(split):
                     if not csv_path.is_file():
-                        raise ValueError(
-                            f"Split file found, but CSV file '{csv_path}' is missing."
-                        )
+                        raise ValueError(f"Split file found, but CSV file '{csv_path}' is missing.")
         else:
             for split in self.split_fracs:
                 if not (root / f"{split}.csv").is_file():
@@ -336,9 +336,7 @@ class CsvSplit:
                 elif parent.is_relative_to(root):
                     parent = parent.relative_to(root)
                 if not (root / parent).resolve().is_relative_to(root.resolve()):
-                    raise ValueError(
-                        "Per-directory file identifiers must be inside `working_dir`."
-                    )
+                    raise ValueError("Per-directory file identifiers must be inside `working_dir`.")
             file_dir_map[str(parent)].append(identifier)
         return dict(file_dir_map)
 
@@ -602,8 +600,7 @@ class SpectrogramDataset(AudioDataset):
                 or set(class_to_index.values()) != set(range(self.num_classes))
             ):
                 raise ValueError(
-                    "class_to_index must map every declared class once "
-                    "to distinct indices 0..C-1"
+                    "class_to_index must map every declared class once to distinct indices 0..C-1"
                 )
         if positive_class is not None:
             if self.task_type != "binary":
@@ -622,7 +619,9 @@ class SpectrogramDataset(AudioDataset):
         if class_to_index is not None:
             self.class_dist_dict = dict(class_to_index)
         elif self.task_type == "binary" and positive_class is not None:
-            self.class_dist_dict = {name: 1 if name == positive_class else 0 for name in self.classes}
+            self.class_dist_dict = {
+                name: 1 if name == positive_class else 0 for name in self.classes
+            }
         elif self.task_type == "binary" and "target" in self.classes:
             # Preserve ANIMAL-SPOT's binary target=1 convention, independent of order.
             self.class_dist_dict = {name: 1 if name == "target" else 0 for name in self.classes}
@@ -647,8 +646,7 @@ class SpectrogramDataset(AudioDataset):
                     )
                 names = tuple(item)
                 if any(
-                    not isinstance(name, str) or name not in self.class_dist_dict
-                    for name in names
+                    not isinstance(name, str) or name not in self.class_dist_dict for name in names
                 ):
                     raise ValueError(
                         f"unknown or invalid multilabel class in annotation: {names!r}"
@@ -833,11 +831,7 @@ class StridedAudioDataset(torch.utils.data.Dataset):
         spec_config: SpectrogramConfig = SpectrogramConfig(),
         norm_config: NormalizationConfig = NormalizationConfig(),
     ) -> None:
-        if (
-            not isinstance(sequence_len, int)
-            or isinstance(sequence_len, bool)
-            or sequence_len <= 0
-        ):
+        if not isinstance(sequence_len, int) or isinstance(sequence_len, bool) or sequence_len <= 0:
             raise ValueError("sequence_len must be a positive number of audio samples")
         if not isinstance(hop, int) or isinstance(hop, bool) or hop <= 0:
             raise ValueError("hop must be a positive number of audio samples")

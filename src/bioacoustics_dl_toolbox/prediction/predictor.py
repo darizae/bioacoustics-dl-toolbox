@@ -172,13 +172,19 @@ def _bundle_inputs(
     ]
     if missing:
         raise ValueError(
-            "Checkpoint lacks inference metadata: " + ", ".join(missing)
+            "Checkpoint lacks inference metadata: "
+            + ", ".join(missing)
             + ". Supply these explicitly for a legacy six-key checkpoint "
             "or export a bundle with resolved v2 metadata."
         )
     return (
-        class_to_index, task_config, spec_config, norm_config,
-        window_samples, hop_samples, thresholds,
+        class_to_index,
+        task_config,
+        spec_config,
+        norm_config,
+        window_samples,
+        hop_samples,
+        thresholds,
     )
 
 
@@ -237,8 +243,13 @@ def predict_windows(
             raise TypeError("model must be an nn.Module, checkpoint mapping, or checkpoint path")
         bundle = model
         (
-            class_to_index, task_config, spec_config, norm_config,
-            window_samples, hop_samples, thresholds,
+            class_to_index,
+            task_config,
+            spec_config,
+            norm_config,
+            window_samples,
+            hop_samples,
+            thresholds,
         ) = _bundle_inputs(
             bundle,
             class_to_index=class_to_index,
@@ -284,8 +295,11 @@ def predict_windows(
     # ``StridedAudioDataset`` uses the shared deterministic training feature path,
     # including mono resampling and fixed feature-frame geometry.
     dataset = StridedAudioDataset(
-        str(audio_file), sequence_len=window_samples, hop=hop_samples,
-        spec_config=spec_config, norm_config=norm_config,
+        str(audio_file),
+        sequence_len=window_samples,
+        hop=hop_samples,
+        spec_config=spec_config,
+        norm_config=norm_config,
     )
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=0)
     if device is None:
@@ -305,7 +319,8 @@ def predict_windows(
             for offset, features in enumerate(loader):
                 logits = model(features.to(target_device))
                 if (
-                    not isinstance(logits, torch.Tensor) or logits.ndim != 2
+                    not isinstance(logits, torch.Tensor)
+                    or logits.ndim != 2
                     or logits.shape != (features.shape[0], len(names))
                     or not logits.is_floating_point()
                 ):
@@ -316,7 +331,8 @@ def predict_windows(
                 if not bool(torch.isfinite(logits).all()):
                     raise ValueError("model returned non-finite logits/probabilities")
                 probabilities = (
-                    multilabel_probabilities(logits) if resolved == "multilabel"
+                    multilabel_probabilities(logits)
+                    if resolved == "multilabel"
                     else torch.softmax(logits, dim=1)
                 )
                 if not bool(torch.isfinite(probabilities).all()):

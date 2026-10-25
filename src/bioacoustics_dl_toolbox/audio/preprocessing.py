@@ -76,18 +76,14 @@ def build_feature_preprocessor(
         or not isfinite(spec_config.f_max)
         or not 0 <= spec_config.f_min < spec_config.f_max <= spec_config.sample_rate / 2
     ):
-        raise ValueError(
-            "Frequency range must satisfy 0 <= f_min < f_max <= sample_rate / 2"
-        )
+        raise ValueError("Frequency range must satisfy 0 <= f_min < f_max <= sample_rate / 2")
     if spec_config.freq_compression == "mfcc" and spec_config.n_freq_bins < 33:
         raise ValueError("MFCC requires n_freq_bins >= 33 to produce 32 coefficients")
     if spec_config.freq_compression == "linear":
         # Nearest-neighbor interpolation requires at least one FFT bin in range.
         # Match the bounds used by ANIMAL-SPOT's Interpolate, including its
         # exclusive upper bound, to avoid changing previously trained features.
-        min_bin = max(
-            0, floor(spec_config.n_fft * spec_config.f_min / spec_config.sample_rate)
-        )
+        min_bin = max(0, floor(spec_config.n_fft * spec_config.f_min / spec_config.sample_rate))
         max_bin = min(
             spec_config.n_fft - 1,
             ceil(spec_config.n_fft * spec_config.f_max / spec_config.sample_rate),
@@ -155,6 +151,4 @@ def spectrogram_frames_for_samples(sample_count: int, spec_config: SpectrogramCo
     _positive_int(sample_count, "sample_count")
     _positive_int(spec_config.n_fft, "n_fft", minimum=2)
     _positive_int(spec_config.hop_length, "hop_length")
-    return 1 + (
-        max(sample_count, spec_config.n_fft) - spec_config.n_fft
-    ) // spec_config.hop_length
+    return 1 + (max(sample_count, spec_config.n_fft) - spec_config.n_fft) // spec_config.hop_length

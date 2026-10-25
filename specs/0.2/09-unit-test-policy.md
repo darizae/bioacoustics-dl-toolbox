@@ -1,6 +1,6 @@
 # SPEC-09 — Unit-test-only regression coverage for v0.2.0
 
-**Status:** Planned · **Priority:** P2 (continuous) · **Dependencies:** Applies to all other specs · **Target:** v0.2.0
+**Status:** Implemented for current workstreams (commit pending) · **Priority:** P2 (continuous) · **Dependencies:** Applies to all other specs · **Target:** v0.2.0
 
 ## Problem / evidence
 
@@ -47,10 +47,27 @@ These are the intended verification commands **after code implementation**. Do n
 
 ## Acceptance criteria
 
-- [ ] Every functional spec has a relevant, isolated unit-test module and its pass/failure/boundary cases.
-- [ ] No real recording, GPU, network, integration, or full pipeline tests were introduced.
-- [ ] Existing four baseline tests still pass.
-- [ ] Test execution and lint results are recorded at code-review time.
+- [x] Every implemented functional spec has a relevant, isolated unit-test module and its pass/failure/boundary cases.
+- [x] No real recording, GPU, network, integration, or full pipeline tests were introduced.
+- [x] Existing four baseline tests still pass.
+- [x] Test execution and lint results are recorded at code-review time.
+
+## Implementation verification
+
+- Focused modules cover SPEC-01 through SPEC-08: `tests/test_csv_split.py`,
+  `tests/test_preprocessing.py`, `tests/test_task_config.py`,
+  `tests/test_multilabel_dataset.py`, `tests/test_multilabel_trainer.py`,
+  `tests/test_multilabel_metrics.py`, `tests/test_predictor.py`,
+  `tests/test_model_metadata.py`, and `tests/test_class_mapping.py`.
+- `tests/test_checkpoints.py` retains the four baseline compatibility,
+  optional-import, trainer-import, and picklability tests.
+- Verification on 2026-10-25:
+  - `PYTHONPATH=src python -m pytest`: 284 tests passed.
+  - `python -m ruff check src tests`: passed.
+  - `python -m ruff format --check src tests`: passed.
+- SPEC-10 remains planned, so `tests/test_raven_export.py` is intentionally
+  deferred until the Raven exporter exists. SPEC-10 must add its focused
+  success, boundary, and failure cases before it can be marked implemented.
 
 ## Documentation and release notes
 

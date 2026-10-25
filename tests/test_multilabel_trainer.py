@@ -162,7 +162,9 @@ def test_multilabel_requires_consistent_task_and_class_index_mapping():
         instance._validate_task_setup(
             train,
             FakeLoader(
-                torch.zeros(1, 2), torch.zeros(1, 3), task="multiclass",
+                torch.zeros(1, 2),
+                torch.zeros(1, 3),
+                task="multiclass",
                 mapping={"class_0": 0, "class_1": 1, "class_2": 2},
             ),
             None,
@@ -175,8 +177,7 @@ def test_single_label_training_and_validation_keep_integer_targets():
     loss = RecordingCrossEntropy()
     optimizer = torch.optim.SGD(instance.model.parameters(), lr=0.01)
     assert (
-        instance._train_epoch(0, loader, loss, optimizer, {}, torch.device("cpu"), lambda: None)
-        > 0
+        instance._train_epoch(0, loader, loss, optimizer, {}, torch.device("cpu"), lambda: None) > 0
     )
     assert instance._test_epoch(0, loader, loss, {}, torch.device("cpu")) > 0
     assert loss.seen == [((2, 2), (2,), torch.int64), ((2, 2), (2,), torch.int64)]

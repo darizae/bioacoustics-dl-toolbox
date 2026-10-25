@@ -38,11 +38,7 @@ def multilabel_probabilities(logits: torch.Tensor) -> torch.Tensor:
     The result remains on the input device and retains autograd information.
     No softmax, detachment, or CPU transfer is performed.
     """
-    if (
-        not isinstance(logits, torch.Tensor)
-        or logits.ndim != 2
-        or not logits.is_floating_point()
-    ):
+    if not isinstance(logits, torch.Tensor) or logits.ndim != 2 or not logits.is_floating_point():
         raise ValueError("multilabel logits must be a floating tensor of shape [B, C]")
     if logits.shape[1] < 1:
         raise ValueError("multilabel logits require at least one class")
@@ -116,11 +112,7 @@ class MultiLabelMetrics(MetricBase):
         score: MultiLabelScore = "micro_f1",
         device: torch.device | None = None,
     ) -> None:
-        if (
-            isinstance(num_classes, bool)
-            or not isinstance(num_classes, int)
-            or num_classes < 1
-        ):
+        if isinstance(num_classes, bool) or not isinstance(num_classes, int) or num_classes < 1:
             raise ValueError("num_classes must be a positive integer")
         if score not in _SCORE_NAMES:
             raise ValueError(f"score must be one of {_SCORE_NAMES}; got {score!r}")
@@ -160,9 +152,7 @@ class MultiLabelMetrics(MetricBase):
             self.fn += (actual & ~predicted).sum(dim=0)
 
     def _scores(self) -> dict[str, torch.Tensor]:
-        tp, fp, fn = (
-            counts.to(dtype=torch.float64) for counts in (self.tp, self.fp, self.fn)
-        )
+        tp, fp, fn = (counts.to(dtype=torch.float64) for counts in (self.tp, self.fp, self.fn))
         precision = _divide(tp, tp + fp)
         recall = _divide(tp, tp + fn)
         f1 = _divide(2 * tp, 2 * tp + fp + fn)

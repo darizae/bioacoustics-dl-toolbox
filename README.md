@@ -269,6 +269,8 @@ They do not use exported-model `metadata` or its schema version.
 
 ## Development
 
+For v0.2.0, keep verification strictly to deterministic CPU-based unit tests; do not add integration, end-to-end, GPU, network, or real-recording tests.
+
 ```bash
 python -m pip install -e '.[test]'
 python -m pytest

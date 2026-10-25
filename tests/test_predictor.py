@@ -14,7 +14,6 @@ from bioacoustics_dl_toolbox.config import NormalizationConfig, SpectrogramConfi
 from bioacoustics_dl_toolbox.prediction import WindowPrediction, predict_windows
 from bioacoustics_dl_toolbox.prediction import predictor as module
 
-
 SPEC = SpectrogramConfig(
     sample_rate=8000, n_fft=4, hop_length=2, n_freq_bins=8, f_min=50, f_max=3000
 )
@@ -39,7 +38,7 @@ class FakeModel(nn.Module):
         )
         offset = self.offset
         self.offset += len(features)
-        return self.logits[offset:self.offset].to(device=features.device)
+        return self.logits[offset : self.offset].to(device=features.device)
 
 
 @pytest.fixture
@@ -59,7 +58,9 @@ def audio(monkeypatch):
 
 def _predict(model, *, audio_file="sample.wav", **kwargs):
     return predict_windows(
-        model, audio_file, class_to_index=kwargs.pop("class_to_index", CLASSES),
+        model,
+        audio_file,
+        class_to_index=kwargs.pop("class_to_index", CLASSES),
         task_config=kwargs.pop("task_config", TaskConfig(task_type="multiclass")),
         spec_config=kwargs.pop("spec_config", SPEC),
         norm_config=kwargs.pop("norm_config", NORM),
@@ -102,15 +103,21 @@ def test_multilabel_sigmoid_independent_thresholds_and_final_tail(audio):
     audio["sample.wav"] = torch.arange(11, dtype=torch.float32)[None, :]
     model = FakeModel([[10, 10, 0], [-10, -10, -10], [0, 2, 2], [10, -10, 0]])
     results = _predict(
-        model, task_config=TaskConfig("multilabel"), hop_samples=3,
-        thresholds={"rain": 0.7, "frog": 0.8, "bird": 0.5}, batch_size=3,
+        model,
+        task_config=TaskConfig("multilabel"),
+        hop_samples=3,
+        thresholds={"rain": 0.7, "frog": 0.8, "bird": 0.5},
+        batch_size=3,
         device="cpu",
     )
     assert [p.index for p in results] == [0, 1, 2, 3]
     assert [p.start_sample for p in results] == [0, 3, 6, 9]
     assert [p.end_sample for p in results] == [4, 7, 10, 11]
     assert [p.predicted_labels for p in results] == [
-        ["bird", "frog"], [], ["bird", "frog", "rain"], ["bird"]
+        ["bird", "frog"],
+        [],
+        ["bird", "frog", "rain"],
+        ["bird"],
     ]
     assert [p.start_seconds for p in results] == [x / 8000 for x in [0, 3, 6, 9]]
     assert results[-1].end_seconds == 11 / 8000
@@ -135,7 +142,11 @@ def test_multilabel_sigmoid_independent_thresholds_and_final_tail(audio):
 def test_window_coverage_and_fixed_padding(audio, n_frames, window, hop, starts, ends):
     audio["sample.wav"] = torch.arange(n_frames, dtype=torch.float32)[None, :]
     dataset = datasets.StridedAudioDataset(
-        "sample.wav", sequence_len=window, hop=hop, spec_config=SPEC, norm_config=NORM,
+        "sample.wav",
+        sequence_len=window,
+        hop=hop,
+        spec_config=SPEC,
+        norm_config=NORM,
     )
     assert len(dataset) == len(starts)
     assert len(set(tuple(dataset[i].shape) for i in range(len(dataset)))) == 1
@@ -176,9 +187,21 @@ def test_invalid_inputs_raise_without_predicting(audio, kwargs, message):
     assert model.offset == 0
 
 
-@pytest.mark.parametrize("thresholds", [0, 1, -0.2, float("nan"), float("inf"), [0.2, 0.3],
-                                            [0.2, 0.3, 1.0], {"bird": 0.5, "frog": 0.5},
-                                            "bad", [[0.5, 0.5, 0.5]]])
+@pytest.mark.parametrize(
+    "thresholds",
+    [
+        0,
+        1,
+        -0.2,
+        float("nan"),
+        float("inf"),
+        [0.2, 0.3],
+        [0.2, 0.3, 1.0],
+        {"bird": 0.5, "frog": 0.5},
+        "bad",
+        [[0.5, 0.5, 0.5]],
+    ],
+)
 def test_invalid_multilabel_thresholds(audio, thresholds):
     audio["sample.wav"] = torch.ones((1, 4))
     model = FakeModel([[0, 0, 0]])
@@ -192,14 +215,16 @@ def test_multilabel_default_half_and_index_ordered_vector(audio):
     result = _predict(FakeModel([[0, 0, 0]]), task_config=TaskConfig("multilabel"))[0]
     assert result.predicted_labels == ["bird", "frog", "rain"]  # inclusive >= 0.5
     result = _predict(
-        FakeModel([[0, 0, 0]]), task_config=TaskConfig("multilabel"),
+        FakeModel([[0, 0, 0]]),
+        task_config=TaskConfig("multilabel"),
         thresholds=[0.6, 0.4, 0.6],
     )[0]
     assert result.predicted_labels == ["frog"]
 
 
-@pytest.mark.parametrize("bad_logits", [[[1, 2]], [[1, 2, 3, 4]], [[math.nan, 0, 0]],
-                                             [[math.inf, 0, 0]]])
+@pytest.mark.parametrize(
+    "bad_logits", [[[1, 2]], [[1, 2, 3, 4]], [[math.nan, 0, 0]], [[math.inf, 0, 0]]]
+)
 def test_incorrect_output_or_non_finite_rejected_and_mode_restored(audio, bad_logits):
     audio["sample.wav"] = torch.ones((1, 4))
     model = FakeModel(bad_logits)
@@ -209,12 +234,15 @@ def test_incorrect_output_or_non_finite_rejected_and_mode_restored(audio, bad_lo
     assert model.training is False
 
 
-@pytest.mark.parametrize("waveform, message", [
-    (torch.empty((1, 0)), "nonempty mono"),
-    (torch.ones((2, 4)), "nonempty mono"),
-    (torch.tensor([[float("nan"), 1.0]]), "non-finite"),
-    (OSError("unsupported audio format"), "Unable to read audio file"),
-])
+@pytest.mark.parametrize(
+    "waveform, message",
+    [
+        (torch.empty((1, 0)), "nonempty mono"),
+        (torch.ones((2, 4)), "nonempty mono"),
+        (torch.tensor([[float("nan"), 1.0]]), "non-finite"),
+        (OSError("unsupported audio format"), "Unable to read audio file"),
+    ],
+)
 def test_empty_bad_or_unreadable_audio_is_explicit(audio, waveform, message):
     audio["sample.wav"] = waveform
     with pytest.raises(ValueError, match=message):
@@ -224,9 +252,12 @@ def test_empty_bad_or_unreadable_audio_is_explicit(audio, waveform, message):
 def test_checkpoint_legacy_settings_missing_and_bundle_reconstruction_mock(monkeypatch, audio):
     audio["sample.wav"] = torch.ones((1, 4))
     bundle = {
-        "spectrogramConfig": vars(SPEC), "classes": CLASSES,
-        "encoderConfig": {}, "classifierConfig": {},
-        "encoderState": {}, "classifierState": {},
+        "spectrogramConfig": vars(SPEC),
+        "classes": CLASSES,
+        "encoderConfig": {},
+        "classifierConfig": {},
+        "encoderState": {},
+        "classifierState": {},
     }
     with pytest.raises(ValueError, match="task_config, norm_config, window_samples, hop_samples"):
         predict_windows(bundle, "sample.wav")
@@ -242,8 +273,12 @@ def test_checkpoint_legacy_settings_missing_and_bundle_reconstruction_mock(monke
 
     monkeypatch.setattr(module, "_restore_model", fake_restore)
     result = predict_windows(
-        bundle, "sample.wav", task_config=TaskConfig("multilabel"),
-        norm_config=NORM, window_samples=4, hop_samples=4,
+        bundle,
+        "sample.wav",
+        task_config=TaskConfig("multilabel"),
+        norm_config=NORM,
+        window_samples=4,
+        hop_samples=4,
     )
     assert calls == [bundle]
     assert result[0].predicted_labels == ["bird", "frog", "rain"]
@@ -252,11 +287,15 @@ def test_checkpoint_legacy_settings_missing_and_bundle_reconstruction_mock(monke
 def test_v2_bundle_uses_resolved_inference_metadata_and_path(monkeypatch, audio):
     audio["sample.wav"] = torch.ones((1, 4))
     bundle = {
-        "spectrogramConfig": vars(SPEC), "classes": CLASSES,
+        "spectrogramConfig": vars(SPEC),
+        "classes": CLASSES,
         "metadata": {
-            "schema_version": 2, "task_type": "multilabel",
-            "normalization_config": vars(NORM), "window_length_samples": 4,
-            "hop_samples": 4, "thresholds": {"bird": 0.6, "frog": 0.4, "rain": 0.6},
+            "schema_version": 2,
+            "task_type": "multilabel",
+            "normalization_config": vars(NORM),
+            "window_length_samples": 4,
+            "hop_samples": 4,
+            "thresholds": {"bird": 0.6, "frog": 0.4, "rain": 0.6},
         },
     }
     model = FakeModel([[0, 0, 0]])
@@ -289,7 +328,8 @@ def test_checkpoint_reconstruction_uses_named_encoder_and_classifier(monkeypatch
     encoder = nn.Linear(2, 2)
     classifier = nn.Linear(2, 3)
     payload = {
-        "encoderConfig": {}, "classifierConfig": {},
+        "encoderConfig": {},
+        "classifierConfig": {},
         "encoderState": encoder.state_dict(),
         "classifierState": classifier.state_dict(),
     }
@@ -310,9 +350,11 @@ def test_checkpoint_partial_feature_metadata_is_not_filled_with_defaults(audio):
         "classes": CLASSES,
         "spectrogramConfig": {"sample_rate": SPEC.sample_rate},
         "metadata": {
-            "schema_version": 2, "task_type": "multilabel",
+            "schema_version": 2,
+            "task_type": "multilabel",
             "normalization_config": {"mode": "min_max"},
-            "window_length_samples": 4, "hop_samples": 4,
+            "window_length_samples": 4,
+            "hop_samples": 4,
         },
     }
     with pytest.raises(ValueError, match="spectrogramConfig is missing"):

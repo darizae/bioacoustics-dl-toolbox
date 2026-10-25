@@ -158,9 +158,7 @@ def test_trainer_detects_class_count_mapping_and_head_mismatch():
     with pytest.raises(ValueError, match="val dataset has 3 classes"):
         trainer._validate_task_setup(train, make_loader(num_classes=3), None)
     with pytest.raises(ValueError, match="class_to_index differs"):
-        trainer._validate_task_setup(
-            train, make_loader(mapping={"class_0": 1, "class_1": 0}), None
-        )
+        trainer._validate_task_setup(train, make_loader(mapping={"class_0": 1, "class_1": 0}), None)
     with pytest.raises(ValueError, match="Classifier output num_classes=3"):
         make_trainer(num_classes=3)._validate_task_setup(train, make_loader(), None)
 

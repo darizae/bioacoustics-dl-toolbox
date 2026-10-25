@@ -16,7 +16,7 @@ This is the **ongoing** change log for `bioacoustics-dl-toolbox`. The repository
 
 ### Changed
 
-_None yet._
+- **SPEC-09:** Expanded deterministic CPU-based unit coverage for datasets, task dispatch, feature processing, prediction, metrics, and checkpoint compatibility.
 
 ### Fixed
 
@@ -51,7 +51,6 @@ The following are proposals, **not released changes**. Each workstream provides 
 
 | Spec | Planned work |
 | --- | --- |
-| [09](specs/0.2/09-unit-test-policy.md) | Broader focused **unit-test-only** coverage |
 | [10](specs/0.2/10-raven-export.md) | Optional Raven-compatible selection-table export |
 
 ## 0.1.1 — baseline in supplied source archive

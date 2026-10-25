@@ -222,7 +222,9 @@ class Trainer:
                 if getattr(metric, "supports_multilabel", False)
             }
         else:
-            selected = [metric for metric in metrics if getattr(metric, "supports_multilabel", False)]
+            selected = [
+                metric for metric in metrics if getattr(metric, "supports_multilabel", False)
+            ]
         if len(selected) != len(metrics) and not self._multilabel_metrics_warning_emitted:
             self.logger.warning("Skipping single-label metrics for multilabel %s", task_type)
             self._multilabel_metrics_warning_emitted = True
@@ -475,9 +477,7 @@ class Trainer:
 
             prediction: torch.Tensor | None = None
             if call_label is not None:
-                prediction = self._task_predictions(
-                    output, task_type, self.multilabel_thresholds
-                )
+                prediction = self._task_predictions(output, task_type, self.multilabel_thresholds)
                 metric_targets = call_label.bool() if task_type == "multilabel" else call_label
                 self._update_metrics(active_metrics, metric_targets, prediction)
                 if auc is not None:

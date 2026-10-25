@@ -285,9 +285,9 @@ def _validated_metadata(
         frames = _positive_int(metadata["sequence_length_frames"], "sequence_length_frames")
         # center=False, with the same minimum one-frame padding as the shared
         # spectrogram_frames_for_samples preprocessing helper.
-        expected = 1 + (
-            max(window, spec_config.n_fft) - spec_config.n_fft
-        ) // spec_config.hop_length
+        expected = (
+            1 + (max(window, spec_config.n_fft) - spec_config.n_fft) // spec_config.hop_length
+        )
         if frames != expected:
             raise ValueError(
                 f"metadata sequence_length_frames={frames} does not match "

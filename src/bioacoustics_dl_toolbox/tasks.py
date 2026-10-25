@@ -27,8 +27,7 @@ def validate_task_batch(
     task_type = resolve_task_type(task_config, num_classes)
     if logits.ndim != 2 or logits.shape[1] != num_classes:
         raise ValueError(
-            f"{task_type} logits must have shape [B, {num_classes}]; "
-            f"got {tuple(logits.shape)}"
+            f"{task_type} logits must have shape [B, {num_classes}]; got {tuple(logits.shape)}"
         )
     if not logits.is_floating_point():
         raise ValueError(f"{task_type} logits must have a floating dtype (raw scores)")

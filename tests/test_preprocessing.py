@@ -5,7 +5,8 @@ from dataclasses import replace
 import pytest
 import torch
 
-from bioacoustics_dl_toolbox.audio import datasets, transforms as T
+from bioacoustics_dl_toolbox.audio import datasets
+from bioacoustics_dl_toolbox.audio import transforms as T
 from bioacoustics_dl_toolbox.audio.preprocessing import (
     build_feature_preprocessor,
     spectrogram_frames_for_samples,
@@ -102,9 +103,9 @@ def test_short_window_is_post_feature_center_zero_padded(fake_audio, compression
     assert inference.shape[1] == 9
     left = (9 - native.shape[1]) // 2
     assert torch.count_nonzero(inference[:, :left, :]) == 0
-    assert torch.count_nonzero(inference[:, left + native.shape[1]:, :]) == 0
+    assert torch.count_nonzero(inference[:, left + native.shape[1] :, :]) == 0
     torch.testing.assert_close(
-        inference[:, left:left + native.shape[1], :], native, rtol=0, atol=0
+        inference[:, left : left + native.shape[1], :], native, rtol=0, atol=0
     )
 
 
@@ -122,9 +123,7 @@ def test_two_runs_are_identical_and_inference_never_uses_random_augmentation(
     def unexpected(*_args, **_kwargs):
         raise AssertionError("random augmentation ran during prediction")
 
-    for transform in (
-        T.RandomAmplitude, T.RandomTimeStretch, T.RandomPitchShift, T.RandomAddNoise
-    ):
+    for transform in (T.RandomAmplitude, T.RandomTimeStretch, T.RandomPitchShift, T.RandomAddNoise):
         monkeypatch.setattr(transform, "__call__", unexpected)
     fake_audio["test.wav"] = _waveform(192)
     predictor = datasets.StridedAudioDataset(
@@ -192,17 +191,11 @@ def test_invalid_spectrogram_configs_rejected(field, value, message):
 
 def test_invalid_normalization_and_mfcc_width_rejected():
     with pytest.raises(ValueError, match="normalization mode"):
-        build_feature_preprocessor(
-            _config("linear"), NormalizationConfig(mode="unknown")
-        )
+        build_feature_preprocessor(_config("linear"), NormalizationConfig(mode="unknown"))
     with pytest.raises(ValueError, match="normalization min_level_db"):
-        build_feature_preprocessor(
-            _config("linear"), NormalizationConfig(min_level_db=0)
-        )
+        build_feature_preprocessor(_config("linear"), NormalizationConfig(min_level_db=0))
     with pytest.raises(ValueError, match="MFCC requires"):
-        build_feature_preprocessor(
-            replace(_config("mfcc"), n_freq_bins=32), NormalizationConfig()
-        )
+        build_feature_preprocessor(replace(_config("mfcc"), n_freq_bins=32), NormalizationConfig())
 
 
 def test_invalid_window_sizes_are_rejected_before_loading_audio(fake_audio):
@@ -213,10 +206,7 @@ def test_invalid_window_sizes_are_rejected_before_loading_audio(fake_audio):
         datasets.StridedAudioDataset("does-not-exist.wav", 192, 0, spec_config=spec)
     with pytest.raises(ValueError, match="sequence_length"):
         datasets.SpectrogramDataset(
-            ["target-test.wav"],
-            classes=["target", "noise"],
-            sequence_length=0,
-            spec_config=spec
+            ["target-test.wav"], classes=["target", "noise"], sequence_length=0, spec_config=spec
         )
 
 

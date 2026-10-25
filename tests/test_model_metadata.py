@@ -20,7 +20,6 @@ from bioacoustics_dl_toolbox.training.checkpoints import (
     validate_resume_checkpoint_task,
 )
 
-
 CLASSES = {"frog": 1, "bird": 0, "rain": 2}
 SPEC = SpectrogramConfig(sample_rate=48000, n_fft=1024, hop_length=256)
 WINDOW = 2048
@@ -68,8 +67,12 @@ def test_six_key_export_is_unchanged_with_old_positional_call(tmp_path):
     save_model(*args[:5], SPEC, path, CLASSES)
     raw = load_model(path)
     assert set(raw) == {
-        "encoderConfig", "classifierConfig", "spectrogramConfig",
-        "encoderState", "classifierState", "classes",
+        "encoderConfig",
+        "classifierConfig",
+        "spectrogramConfig",
+        "encoderState",
+        "classifierState",
+        "classes",
     }
     assert raw["classes"] == CLASSES
     assert raw["spectrogramConfig"] == asdict(SPEC)
@@ -87,8 +90,13 @@ def test_v2_weights_only_round_trip_preserves_primitives_and_weights(tmp_path):
     payload = torch.load(path, weights_only=True)
     assert load_model(path).keys() == payload.keys()
     assert set(payload) == {
-        "encoderConfig", "classifierConfig", "spectrogramConfig",
-        "encoderState", "classifierState", "classes", "metadata",
+        "encoderConfig",
+        "classifierConfig",
+        "spectrogramConfig",
+        "encoderState",
+        "classifierState",
+        "classes",
+        "metadata",
     }
     expected = _metadata(thresholds={"bird": 0.4, "frog": 0.6, "rain": 0.7})
     assert payload["metadata"] == expected
@@ -115,8 +123,13 @@ def test_legacy_parser_never_infers_task_normalization_frames_or_thresholds(tmp_
     assert descriptor["legacy"] is True
     assert descriptor["is_complete"] is False
     for name in (
-        "task_type", "normalization_config", "window_length_samples",
-        "sequence_length_frames", "hop_samples", "thresholds", "class_names",
+        "task_type",
+        "normalization_config",
+        "window_length_samples",
+        "sequence_length_frames",
+        "hop_samples",
+        "thresholds",
+        "class_names",
     ):
         assert descriptor[name] is None
 
@@ -191,11 +204,12 @@ def test_metadata_required_fields_and_unknown_fields_rejected(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "classes", [
+    "classes",
+    [
         {"bird": 0, "frog": 0, "rain": 2},
         {"bird": 0, "frog": 2, "rain": 3},
         {"bird": 0, "frog": 1, "rain": True},
-    ]
+    ],
 )
 def test_class_indices_must_be_unique_and_contiguous_for_v2(tmp_path, classes):
     with pytest.raises(ValueError, match="unique, contiguous"):

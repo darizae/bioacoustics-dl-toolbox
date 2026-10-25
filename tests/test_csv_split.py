@@ -7,7 +7,6 @@ import pytest
 
 from bioacoustics_dl_toolbox.audio.datasets import CsvSplit, DatabaseCsvSplit
 
-
 FRACTIONS = {"train": 0.70, "val": 0.15, "test": 0.15}
 
 
@@ -41,9 +40,9 @@ def test_seed_zero_is_reproducible():
     right = CsvSplit(FRACTIONS, seed=0).load("train", files)
 
     assert left == right
-    assert CsvSplit(FRACTIONS, seed=0).split_fn(files) == CsvSplit(
-        FRACTIONS, seed=0
-    ).split_fn(files)
+    assert CsvSplit(FRACTIONS, seed=0).split_fn(files) == CsvSplit(FRACTIONS, seed=0).split_fn(
+        files
+    )
 
 
 def test_global_random_state_unchanged():
@@ -130,9 +129,9 @@ def test_relative_workdir_per_directory_round_trip(tmp_path, monkeypatch):
     for name in fracs:
         manifest = (tmp_path / "splits" / name).read_text().splitlines()
         assert manifest == [f"region/site_{i}/{name}.csv" for i in range(2)]
-    assert CsvSplit(fracs, working_dir="splits", split_per_dir=True).load(
-        "train"
-    ) == expected["train"]
+    assert (
+        CsvSplit(fracs, working_dir="splits", split_per_dir=True).load("train") == expected["train"]
+    )
     reloaded = CsvSplit(fracs, working_dir="splits", split_per_dir=True)
     assert {name: reloaded.load(name) for name in fracs} == expected
 
@@ -155,9 +154,9 @@ def test_manifest_prefixed_with_relative_workdir_loads(tmp_path, monkeypatch):
     (tmp_path / "splits" / "train").write_text("splits/site/train.csv\n")
     (csv_dir / "train.csv").write_text("site/bird.wav\n")
 
-    assert CsvSplit({"train": 1.0}, working_dir="splits", split_per_dir=True).load(
-        "train"
-    ) == ["site/bird.wav"]
+    assert CsvSplit({"train": 1.0}, working_dir="splits", split_per_dir=True).load("train") == [
+        "site/bird.wav"
+    ]
 
 
 def test_invalid_csv_rows_raise(tmp_path):
@@ -178,9 +177,7 @@ def test_duplicate_saved_csv_identifiers_raise(tmp_path):
 
 
 def test_positive_empty_per_directory_partition_fails_before_writing(tmp_path):
-    splitter = CsvSplit(
-        {"train": 0.5, "val": 0.5}, working_dir=str(tmp_path), split_per_dir=True
-    )
+    splitter = CsvSplit({"train": 0.5, "val": 0.5}, working_dir=str(tmp_path), split_per_dir=True)
     with pytest.raises(ValueError, match="positive fraction"):
         splitter.load("train", ["folder/a.wav"])
     assert not (tmp_path / "folder" / "train.csv").exists()

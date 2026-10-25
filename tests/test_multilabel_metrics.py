@@ -229,6 +229,7 @@ def test_trainer_dispatch_uses_named_streaming_metrics_and_skips_single_label(mo
         ]
     )
     metric = MultiLabelMetrics(2, score="micro_f1")
+
     # None of the single-label AUC/confusion constructors or plotting paths may execute.
     def forbidden(*args, **kwargs):
         raise AssertionError("single-label metric/plot path called")
