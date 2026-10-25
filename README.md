@@ -14,7 +14,7 @@ animal-independent ResNet-based bioacoustic classification framework. See
 
 ## Roadmap and release notes
 
-- [**v0.2.0 implementation plan and agent onboarding**](0.2_VERSION.md) — specifications only; proposed changes are **not yet implemented**.
+- [**v0.2.0 implementation plan and agent onboarding**](0.2_VERSION.md) — implementation in progress; only completed workstreams are listed under Unreleased in the release notes.
 - [**v0.2.0 workstream specifications**](specs/0.2/) — one spec per change, with unit-test acceptance criteria.
 - [**Release notes**](RELEASE_NOTES.md) — ongoing change log, including explicitly marked planned work.
 
@@ -59,6 +59,8 @@ python -m pytest
 python -m ruff check src tests
 python -m ruff format --check src tests
 ```
+
+`CsvSplit` now uses cumulative partition boundaries and local seeded randomness, including seed `0`, while preserving file paths when reusing split CSVs.
 
 ## License
 

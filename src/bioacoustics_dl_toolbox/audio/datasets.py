@@ -17,11 +17,11 @@ import os
 import pathlib
 import random
 from collections import defaultdict
+from collections.abc import Mapping
 from functools import partial
-from math import ceil
+from math import ceil, floor, fsum, isclose, isfinite
 from typing import Any, Callable, Dict, Iterable, List, Protocol
 
-import numpy as np
 import soundfile as sf
 import torch
 import torch.multiprocessing as mp
@@ -129,7 +129,12 @@ def get_broken_audio_files(files: Iterable[str], working_dir: str | None = None)
 
 
 class CsvSplit:
-    """Split files into train/val/test partitions and persist to CSV."""
+    """Split file identifiers and optionally reuse partitions saved as one-column CSVs.
+
+    The file identifiers (including any relative directory components) are saved
+    verbatim. A positive-fraction partition must contain at least one entry when
+    persisting to CSV; zero-fraction partitions are allowed to be empty.
+    """
 
     def __init__(
         self,
@@ -138,128 +143,225 @@ class CsvSplit:
         seed: int | None = None,
         split_per_dir: bool = False,
     ) -> None:
-        if not np.isclose(np.sum([p for _, p in split_fracs.items()]), 1.0):
+        if not isinstance(split_fracs, Mapping) or not split_fracs:
+            raise ValueError("`split_fracs` must be a nonempty mapping.")
+        # Materialize the mapping so callers cannot change the splits after creation.
+        fractions: dict[str, float] = {}
+        for name, fraction in split_fracs.items():
+            if (
+                not isinstance(name, str)
+                or not name
+                or name in fractions
+                or name in {".", ".."}
+                or "/" in name
+                or "\\" in name
+            ):
+                raise ValueError("Split names must be nonempty, unique file-safe strings.")
+            try:
+                value = float(fraction)
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise ValueError(f"Invalid fraction for split '{name}': {fraction!r}") from exc
+            if not isfinite(value) or not 0.0 <= value <= 1.0:
+                raise ValueError(f"Invalid fraction for split '{name}': {fraction!r}")
+            fractions[name] = value
+        if not isclose(fsum(fractions.values()), 1.0, rel_tol=1e-6, abs_tol=1e-8):
             raise ValueError("Split probabilities have to sum up to 1.")
-        self.split_fracs = split_fracs
+
+        self.split_fracs = fractions
         self.working_dir = working_dir
         self.seed = seed
         self.split_per_dir = split_per_dir
-        self.splits: dict[str, list[Any]] = defaultdict(list)
+        self.splits: dict[str, list[Any]] = {name: [] for name in fractions}
+        self._rng = random.Random(seed)
+        self._loaded = False  # Empty (zero-fraction) splits are cached too.
+
+    @staticmethod
+    def _validate_files(files: Iterable[Any] | None) -> list[Any]:
+        if files is None:
+            raise ValueError("A nonempty list of `files` is required to generate splits.")
+        items = list(files)
+        if not items:
+            raise ValueError("A nonempty list of `files` is required to generate splits.")
+        try:
+            if len(set(items)) != len(items):
+                raise ValueError("Duplicate input file identifiers are not allowed.")
+        except TypeError as exc:
+            raise ValueError("Input file identifiers must be hashable and unique.") from exc
+        return items
+
+    def _csv_files_for_split(self, split: str) -> list[pathlib.Path]:
+        root = pathlib.Path(self.working_dir)  # type: ignore[arg-type]
+        if not self.split_per_dir:
+            return [root / f"{split}.csv"]
+        manifest = root / split
+        csv_paths = []
+        with manifest.open(encoding="utf-8") as handle:
+            for line in handle:
+                entry = line.strip()
+                if not entry or entry.startswith("#"):
+                    continue
+                path = pathlib.Path(entry)
+                # Accept both the usual manifest-relative paths and legacy
+                # entries already prefixed with a relative working directory.
+                if not path.is_absolute() and not path.is_relative_to(root):
+                    path = root / path
+                csv_paths.append(path)
+        return csv_paths
+
+    def _read_csv_splits(self) -> dict[str, list[str]]:
+        root = pathlib.Path(self.working_dir)  # type: ignore[arg-type]
+        splits: dict[str, list[str]] = {name: [] for name in self.split_fracs}
+        seen: set[str] = set()
+        for split in self.split_fracs:
+            for csv_path in self._csv_files_for_split(split):
+                with csv_path.open(newline="", encoding="utf-8") as handle:
+                    for row_number, row in enumerate(csv.reader(handle), start=1):
+                        if len(row) != 1 or not row[0].strip():
+                            raise ValueError(
+                                f"Invalid CSV row {row_number} in '{csv_path}': "
+                                "expected exactly one nonempty file identifier."
+                            )
+                        identifier = row[0]
+                        # Earlier per-directory CSVs sometimes contain just a
+                        # basename. Resolve those against the directory holding
+                        # the CSV; full relative paths are kept verbatim.
+                        if (
+                            self.split_per_dir
+                            and pathlib.Path(identifier).parent == pathlib.Path(".")
+                        ):
+                            parent = csv_path.parent.resolve().relative_to(root.resolve())
+                            identifier = str(parent / identifier)
+                        if identifier in seen:
+                            raise ValueError(f"Duplicate file identifier in saved CSVs: {identifier!r}")
+                        seen.add(identifier)
+                        splits[split].append(identifier)
+        for split, fraction in self.split_fracs.items():
+            if fraction > 0 and not splits[split]:
+                raise ValueError(f"Split '{split}' has 0 entries despite a positive fraction.")
+        return splits
 
     def load(self, split: str, files: List[Any] | None = None) -> list[Any]:
         if split not in self.split_fracs:
-            raise ValueError("Provided split '{}' is not in `self.split_fracs`.".format(split))
-        if self.splits[split]:
+            raise ValueError(f"Provided split '{split}' is not in `self.split_fracs`.")
+        if self._loaded:
             return self.splits[split]
+        if self.working_dir is not None and self.can_load_from_csv():
+            self.splits = self._read_csv_splits()
+            self._loaded = True
+            return self.splits[split]
+
+        items = self._validate_files(files)
         if self.working_dir is None:
-            self.splits = self._split_with_seed(files)
+            self.splits = self._split_with_seed(items)
+            self._loaded = True
             return self.splits[split]
-        if self.can_load_from_csv():
-            if not self.split_per_dir:
-                csv_split_files: dict[str, list[str] | tuple[str, ...]] = {
-                    split_: (os.path.join(self.working_dir, split_ + ".csv"),)
-                    for split_ in self.split_fracs.keys()
-                }
-            else:
-                csv_split_files = {}
-                for split_ in self.split_fracs.keys():
-                    split_file = os.path.join(self.working_dir, split_)
-                    csv_split_files[split_] = []
-                    with open(split_file, "r") as f:
-                        for line in f.readlines():
-                            csv_split_files[split_].append(line.strip())  # type: ignore[union-attr]
-            for split_ in self.split_fracs.keys():
-                for csv_file in csv_split_files[split_]:
-                    if not csv_file or csv_file.startswith(r"#"):
-                        continue
-                    csv_file_path = os.path.join(self.working_dir, csv_file)
-                    with open(csv_file_path, "r") as f:
-                        reader = csv.reader(f)
-                        for item in reader:
-                            file_ = os.path.basename(item[0])
-                            file_ = os.path.join(os.path.dirname(csv_file), file_)
-                            self.splits[split_].append(file_)
-            return self.splits[split]
-        if not self.split_per_dir:
-            working_dirs: tuple[str, ...] | list[str] = (self.working_dir,)
+
+        root = pathlib.Path(self.working_dir)
+        if self.split_per_dir:
+            groups = self.get_file_dir_map(items)
         else:
-            file_dir_map = self.get_file_dir_map(files)  # type: ignore[arg-type]
-            working_dirs = [os.path.join(self.working_dir, p) for p in file_dir_map.keys()]
-        for working_dir in working_dirs:
-            splits = self._split_with_seed(
-                files if not self.split_per_dir else file_dir_map[working_dir]
-            )
-            for split_ in splits.keys():
-                csv_file = os.path.join(working_dir, split_ + ".csv")
-                logger.debug("Generating {}".format(csv_file))
-                if self.split_per_dir:
-                    with open(os.path.join(self.working_dir, split_), "a") as f:
-                        p = pathlib.Path(csv_file).relative_to(self.working_dir)
-                        f.write(str(p) + "\n")
-                if len(splits[split_]) == 0:
+            groups = {".": items}
+        pending: dict[str, list[Any]] = {name: [] for name in self.split_fracs}
+        csv_data: dict[pathlib.Path, list[Any]] = {}
+        manifest_data: dict[str, list[str]] = {name: [] for name in self.split_fracs}
+        for directory, group_files in groups.items():
+            group_splits = self._split_with_seed(group_files)
+            for name, fraction in self.split_fracs.items():
+                assigned = group_splits[name]
+                if fraction > 0 and not assigned:
                     raise ValueError(
-                        "Error splitting dataset. Split '{}' has 0 entries".format(split_)
+                        f"Split '{name}' has 0 entries despite a positive fraction "
+                        f"for {len(group_files)} files in '{directory}'."
                     )
-                with open(csv_file, "w", newline="") as fh:
-                    writer = csv.writer(fh)
-                    for item in splits[split_]:
-                        writer.writerow([item])
-                self.splits[split_].extend(splits[split_])
+                csv_path = root / directory / f"{name}.csv"
+                csv_data[csv_path] = assigned
+                pending[name].extend(assigned)
+                if self.split_per_dir:
+                    manifest_data[name].append(str(csv_path.relative_to(root)))
+
+        root.mkdir(parents=True, exist_ok=True)
+        for csv_path, assigned in csv_data.items():
+            csv_path.parent.mkdir(parents=True, exist_ok=True)
+            with csv_path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.writer(handle)
+                for identifier in assigned:
+                    writer.writerow([identifier])
+        if self.split_per_dir:
+            for name, paths in manifest_data.items():
+                (root / name).write_text("\n".join(paths) + "\n", encoding="utf-8")
+        self.splits = pending
+        self._loaded = True
         return self.splits[split]
 
     def can_load_from_csv(self) -> bool:
-        if not self.working_dir:
+        if self.working_dir is None:
             return False
+        root = pathlib.Path(self.working_dir)
         if self.split_per_dir:
-            for split in self.split_fracs.keys():
-                split_file = os.path.join(self.working_dir, split)
-                if not os.path.isfile(split_file):
+            for split in self.split_fracs:
+                manifest = root / split
+                if not manifest.is_file():
                     return False
-                logger.debug("Found dataset split file {}".format(split_file))
-                with open(split_file, "r") as f:
-                    for line in f.readlines():
-                        csv_file = line.strip()
-                        if not csv_file or csv_file.startswith(r"#"):
-                            continue
-                        if not os.path.isfile(os.path.join(self.working_dir, csv_file)):
-                            logger.error("File not found: {}".format(csv_file))
-                            raise ValueError(
-                                "Split file found, but csv files are missing. Aborting..."
-                            )
+                for csv_path in self._csv_files_for_split(split):
+                    if not csv_path.is_file():
+                        raise ValueError(
+                            f"Split file found, but CSV file '{csv_path}' is missing."
+                        )
         else:
-            for split in self.split_fracs.keys():
-                csv_file = os.path.join(self.working_dir, split + ".csv")
-                if not os.path.isfile(csv_file):
+            for split in self.split_fracs:
+                if not (root / f"{split}.csv").is_file():
                     return False
-                logger.debug("Found csv file {}".format(csv_file))
         return True
 
     def get_file_dir_map(self, files: List[Any]) -> dict[str, list[Any]]:
+        """Group file identifiers by their relative parent directory."""
         file_dir_map: dict[str, list[Any]] = defaultdict(list)
-        if self.working_dir is not None:
-            for f in files:
-                file_dir_map[str(pathlib.Path(self.working_dir).joinpath(f).parent)].append(f)
-        else:
-            for f in files:
-                file_dir_map[str(pathlib.Path(".").resolve().joinpath(f).parent)].append(f)
-        return file_dir_map
+        root = pathlib.Path(self.working_dir) if self.working_dir is not None else None
+        for identifier in files:
+            parent = pathlib.Path(identifier).parent
+            if root is not None:
+                if parent.is_absolute():
+                    try:
+                        parent = parent.relative_to(root.resolve())
+                    except ValueError as exc:
+                        raise ValueError(
+                            "Per-directory file identifiers must be inside `working_dir`."
+                        ) from exc
+                elif parent.is_relative_to(root):
+                    parent = parent.relative_to(root)
+                if not (root / parent).resolve().is_relative_to(root.resolve()):
+                    raise ValueError(
+                        "Per-directory file identifiers must be inside `working_dir`."
+                    )
+            file_dir_map[str(parent)].append(identifier)
+        return dict(file_dir_map)
 
     def _split_with_seed(self, files: List[Any] | None) -> dict[str, list[Any]]:
-        if not files:
-            raise ValueError("Provided list `files` is `None`.")
-        if self.seed:
-            random.seed(self.seed)
-        return self.split_fn(files)
+        """Legacy entry point for a split using this instance's local RNG."""
+        return self.split_fn(self._validate_files(files))
 
     def split_fn(self, files: List[Any]) -> dict[str, list[Any]]:
-        _splits = np.split(
-            ary=random.sample(files, len(files)),
-            indices_or_sections=[int(p * len(files)) for _, p in self.split_fracs.items()],
-        )
-        splits: dict[str, list[Any]] = {}
-        for i, key in enumerate(self.split_fracs.keys()):
-            splits[key] = list(_splits[i])
-        return splits
+        items = self._validate_files(files)
+        shuffled = self._rng.sample(items, len(items))
+        # k-1 cumulative cuts; the final partition receives the remainder.
+        fractions = list(self.split_fracs.values())
+        cuts = []
+        for count in range(1, len(fractions)):
+            boundary = len(items) * fsum(fractions[:count])
+            # Avoid losing an item to binary floating-point error when a
+            # mathematically integral boundary is represented as 57.9999999...
+            rounded = round(boundary)
+            cut = (
+                rounded
+                if isclose(boundary, rounded, rel_tol=0.0, abs_tol=1e-10)
+                else floor(boundary)
+            )
+            cuts.append(min(len(items), cut))
+        boundaries = [0, *cuts, len(items)]
+        return {
+            name: shuffled[boundaries[i] : boundaries[i + 1]]
+            for i, name in enumerate(self.split_fracs)
+        }
 
 
 def get_tape_key(file: str, valid_years: set[int] | None = None) -> str | None:
@@ -286,8 +388,7 @@ class DatabaseCsvSplit(CsvSplit):
     valid_years: set[int] = set(range(1950, 2200))
 
     def split_fn(self, files: Iterable[Any]) -> dict[str, list[Any]]:
-        if not isinstance(files, list):
-            files = list(files)
+        files = self._validate_files(files)
         n_files = len(files)
         tapes: dict[str, int] = defaultdict(int)
         for file in files:
@@ -316,7 +417,7 @@ class DatabaseCsvSplit(CsvSplit):
             missing_files = {
                 s: n_files * f - mappings[s].count for s, f in self.split_fracs.items()
             }
-            r = random.uniform(0.0, sum(f for f in missing_files.values()))
+            r = self._rng.uniform(0.0, sum(missing_files.values()))
             for _split, _n_files in missing_files.items():
                 r -= _n_files
                 if r < 0:

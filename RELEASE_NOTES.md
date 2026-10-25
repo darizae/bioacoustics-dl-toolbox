@@ -1,6 +1,6 @@
 # Release notes
 
-This is the **ongoing** change log for `bioacoustics-dl-toolbox`. The repository's implementation plan lives in [`0.2_VERSION.md`](0.2_VERSION.md). The current 0.2 documents are **specifications**, not evidence that functionality has shipped.
+This is the **ongoing** change log for `bioacoustics-dl-toolbox`. The repository's implementation plan lives in [`0.2_VERSION.md`](0.2_VERSION.md). Most 0.2 workstreams are **specifications**, not evidence that functionality has shipped; completed work is tracked under Unreleased and has not yet been released.
 
 ## Unreleased
 
@@ -14,7 +14,7 @@ _None yet._
 
 ### Fixed
 
-_None yet._
+- **SPEC-01:** Fixed `CsvSplit` boundaries so train/validation/test partitions cover every input exactly once, including deterministic handling of seed `0` and reliable CSV reuse.
 
 ### Deprecated / Removed
 
@@ -30,7 +30,6 @@ The following are proposals, **not released changes**. Each workstream provides 
 
 | Spec | Planned work |
 | --- | --- |
-| [01](specs/0.2/01-csv-splitting.md) | Correct partition boundaries and deterministic CSV splitting |
 | [02](specs/0.2/02-preprocessing-parity.md) | Consistent spectrogram/MFCC preprocessing in training and inference |
 | [03](specs/0.2/03-task-configuration.md) | Binary, multiclass, and multilabel task contract |
 | [04](specs/0.2/04-multilabel-training.md) | Multi-hot dataset labels and BCE-with-logits training |

@@ -1,6 +1,6 @@
 # SPEC-01 — Correct `CsvSplit` partitioning and CSV reuse
 
-**Status:** Planned · **Priority:** P0 · **Dependencies:** None · **Target:** v0.2.0
+**Status:** Implemented (local working copy; commit pending) · **Priority:** P0 · **Dependencies:** None · **Target:** v0.2.0
 
 ## Problem / evidence
 
@@ -29,11 +29,11 @@ File: `tests/test_csv_split.py`. Use arrays of in-memory identifiers and isolate
 
 ## Acceptance criteria
 
-- [ ] Every input is assigned once and only once for a successful split; expected sizes for 100/70:15:15 are correct.
-- [ ] `seed=0` reproducible; no global RNG mutation.
-- [ ] CSV reload is path-correct and idempotent for valid input.
-- [ ] Tape-aware assignment still keeps tapes together.
-- [ ] All listed **unit tests** pass; no integration tests introduced.
+- [x] Every input is assigned once and only once for a successful split; expected sizes for 100/70:15:15 are correct.
+- [x] `seed=0` reproducible; no global RNG mutation.
+- [x] CSV reload is path-correct and idempotent for valid input.
+- [x] Tape-aware assignment still keeps tapes together.
+- [x] All listed **unit tests** pass; no integration tests introduced.
 
 ## Documentation and release notes
 
@@ -44,3 +44,10 @@ File: `tests/test_csv_split.py`. Use arrays of in-memory identifiers and isolate
 > **SPEC-01:** Fixed `CsvSplit` boundaries so train/validation/test partitions cover every input exactly once, including deterministic handling of seed `0` and reliable CSV reuse.
 
 Mark this spec Implemented with commit and test-file references only after verification.
+
+## Implementation verification
+
+- Unit tests: [`tests/test_csv_split.py`](../../tests/test_csv_split.py) (plus existing [`tests/test_checkpoints.py`](../../tests/test_checkpoints.py)).
+- Local test command: `PYTHONPATH=/tmp/test_shims:src python -m pytest -q` — uses a temporary external, import-only `resampy` stub because dependencies cannot be installed in the offline environment. The stub is not part of the repository.
+- `ruff` lint and format verification remains pending because `ruff` is unavailable offline.
+- Commit hash: pending; the supplied ZIP archive does not contain Git metadata.
