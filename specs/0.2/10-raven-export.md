@@ -1,6 +1,6 @@
 # SPEC-10 — Optional Raven-compatible annotation export
 
-**Status:** Planned · **Priority:** P2 · **Dependencies:** SPEC-06 · **Target:** v0.2.0
+**Status:** Implemented (unit tests: `tests/test_raven_export.py`; delivered as a Git patch for review and commit) · **Priority:** P2 · **Dependencies:** SPEC-06 · **Target:** v0.2.0
 
 ## Problem / evidence
 
@@ -28,10 +28,10 @@ File: `tests/test_raven_export.py`. Construct plain prediction records with synt
 
 ## Acceptance criteria
 
-- [ ] Pure, headless Raven TSV generation from completed predictor result records.
-- [ ] Documented selection-table columns, class labels, bounds, and ordering.
-- [ ] Optional same-label merging does not hide simultaneous labels.
-- [ ] All added coverage is **unit-level** and in-memory.
+- [x] Pure, headless Raven TSV generation from completed predictor result records.
+- [x] Documented selection-table columns, class labels, bounds, and ordering.
+- [x] Optional same-label merging does not hide simultaneous labels.
+- [x] All added coverage is **unit-level** and in-memory.
 
 ## Documentation and release notes
 
@@ -41,4 +41,4 @@ File: `tests/test_raven_export.py`. Construct plain prediction records with synt
 
 > **SPEC-10:** Added optional Raven-compatible selection-table TSV output from timestamped bioacoustic predictions, including independent multi-label annotations.
 
-Mark Implemented after unit tests and commit.
+Implementation verified with in-memory unit tests; commit hash pending application of this patch.

@@ -189,6 +189,15 @@ The previous model training/evaluation state is restored after prediction;
 passing `device` moves the model to that device and leaves it there. This is a
 library API, not a CLI, and does not require visualization dependencies.
 
+`from bioacoustics_dl_toolbox.prediction import write_raven_tsv` provides optional
+Raven-compatible selection-table TSV export directly from `results` via
+`write_raven_tsv(results, sample_rate=44100, destination="selections.txt")`
+(use the prediction sample rate). Each active class receives an independent
+annotation; `merge_overlaps=True` optionally joins overlapping/touching windows
+of the **same** class. The table defaults to the full `0..Nyquist` band and
+requires no inference or annotation UI; window labels are not automatically
+behavioral events.
+
 ## Lossless PCM WAV segments
 
 `extract_pcm_wav_segment` copies a half-open, integer-millisecond interval from

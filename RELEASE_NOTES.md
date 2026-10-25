@@ -1,6 +1,6 @@
 # Release notes
 
-This is the **ongoing** change log for `bioacoustics-dl-toolbox`. The repository's implementation plan lives in [`0.2_VERSION.md`](0.2_VERSION.md). Most 0.2 workstreams are **specifications**, not evidence that functionality has shipped; completed work is tracked under Unreleased and has not yet been released.
+This is the **ongoing** change log for `bioacoustics-dl-toolbox`. The repository's implementation plan lives in [`0.2_VERSION.md`](0.2_VERSION.md). Completed 0.2 workstreams are tracked under Unreleased and have not yet been released.
 
 ## Unreleased
 
@@ -13,6 +13,7 @@ This is the **ongoing** change log for `bioacoustics-dl-toolbox`. The repository
 - **SPEC-05:** Added independent sigmoid/threshold multi-label predictions with per-class counts and micro/macro precision, recall, and F1 metrics.
 - **SPEC-06:** Added a reusable, headless sliding-window predictor with class-named probabilities, task-aware predictions, and recording-relative timestamps.
 - **SPEC-07:** Added optional versioned exported-model metadata for reproducible task, normalization, window, and threshold settings, while preserving legacy six-key checkpoints.
+- **SPEC-10:** Added optional Raven-compatible selection-table TSV output from timestamped bioacoustic predictions, including independent multi-label annotations.
 
 ### Changed
 
@@ -45,14 +46,6 @@ _None yet._
   an explicit mapping where binary polarity matters. Datasets with `target`
   retain the ANIMAL-SPOT convention (`target` = 1).
 
-### Planned for 0.2.0 — not implemented
-
-The following are proposals, **not released changes**. Each workstream provides a ready-to-use release-note entry; move it into the appropriate Unreleased category only once that feature is implemented and passes its unit tests.
-
-| Spec | Planned work |
-| --- | --- |
-| [10](specs/0.2/10-raven-export.md) | Optional Raven-compatible selection-table export |
-
 ## 0.1.1 — baseline in supplied source archive
 
 The snapshot used to author these specs declares version `0.1.1` in `pyproject.toml`. This entry records the **observed baseline only**, not a reconstructed historical release history. Existing capabilities include ResNet encoder/classifier building blocks, audio transforms, single-label training, metrics, and a six-key `trained_model.pt` save/load contract. See the [README](README.md) for the implemented API.
@@ -61,7 +54,7 @@ The snapshot used to author these specs declares version `0.1.1` in `pyproject.t
 
 ## Maintainer process
 
-1. On completing a spec, put its prepared sentence into **Unreleased → Added / Changed / Fixed**, cite its ID, and add migration detail if existing behavior changes. Remove that item from the Planned table or mark it completed without calling it a release.
+1. On completing a spec, put its prepared sentence into **Unreleased → Added / Changed / Fixed**, cite its ID, and add migration detail if existing behavior changes. Keep release status distinct from workstream completion.
 2. On release, transfer verified entries into `## 0.2.0 — YYYY-MM-DD`, leave a fresh `## Unreleased`, and update the version in `pyproject.toml`.
 3. Keep entries concise, externally meaningful, and factual. Do not claim tests passed unless they ran; do not label a proposal as implemented.
 4. Preserve this file and its README link as the ongoing release-notes location for subsequent versions.
