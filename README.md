@@ -147,6 +147,27 @@ center-crops longer feature sequences. Inference applies the same frame-padding
 convention to incomplete tail windows. The cached `.spec` files contain only
 pre-compression power spectrograms, so the existing cache format is unchanged.
 
+## Lossless PCM WAV segments
+
+`extract_pcm_wav_segment` copies a half-open, integer-millisecond interval from
+an uncompressed PCM WAV without decoding, resampling, channel mixing, or sample
+conversion. Endpoints use nearest-source-frame rounding (half frames round up),
+the copy is chunk-bounded, and an existing destination is never overwritten.
+Cancellation and copy failures remove the partial destination.
+
+```python
+from bioacoustics_dl_toolbox.audio import extract_pcm_wav_segment
+
+facts = extract_pcm_wav_segment(
+    "recording.wav",
+    "snippet.wav",
+    start_ms=1_250,
+    end_ms=2_750,
+    cancelled=lambda: False,
+)
+print(facts.start_frame, facts.end_frame, facts.sample_rate_hz)
+```
+
 ## Checkpoint contract
 
 `save_model` writes the established six-key `trained_model.pt` payload:

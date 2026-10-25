@@ -6,6 +6,8 @@ This is the **ongoing** change log for `bioacoustics-dl-toolbox`. The repository
 
 ### Added
 
+- **Alpaca Desktop Spec 04.5:** Added bounded, no-clobber PCM WAV segment
+  extraction with exact frame/format facts and cooperative cancellation.
 - **SPEC-03:** Added an explicit classification task contract for binary, multiclass, and multilabel learning while preserving legacy two-logit binary models.
 - **SPEC-04:** Added multi-hot audio labels and BCE-with-logits training/validation support for simultaneous bioacoustic classes.
 - **SPEC-05:** Added independent sigmoid/threshold multi-label predictions with per-class counts and micro/macro precision, recall, and F1 metrics.
