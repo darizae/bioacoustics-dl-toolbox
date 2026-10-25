@@ -19,7 +19,7 @@ import random
 from collections import defaultdict
 from collections.abc import Iterable as IterableABC, Mapping
 from functools import partial
-from math import ceil, floor, fsum, isclose, isfinite
+from math import floor, fsum, isclose, isfinite
 from typing import Any, Callable, Dict, Iterable, List, Protocol
 
 import soundfile as sf
@@ -816,12 +816,21 @@ class StridedAudioDataset(torch.utils.data.Dataset):
             raise ValueError("sequence_len must be a positive number of audio samples")
         if not isinstance(hop, int) or isinstance(hop, bool) or hop <= 0:
             raise ValueError("hop must be a positive number of audio samples")
+        if hop > sequence_len:
+            raise ValueError("hop cannot exceed sequence_len (gapped scan)")
         self.preprocessing = build_feature_preprocessor(spec_config, norm_config)
         self.sequence_len = sequence_len
         self.hop = hop
-        self.audio = audio_io.load_audio_file(
-            file_name, sample_rate=spec_config.sample_rate, mono=True
-        )
+        try:
+            self.audio = audio_io.load_audio_file(
+                file_name, sample_rate=spec_config.sample_rate, mono=True
+            )
+        except (OSError, RuntimeError) as exc:
+            raise ValueError(f"Unable to read audio file {file_name!r}: {exc}") from exc
+        if self.audio.ndim != 2 or self.audio.shape[0] != 1 or self.audio.shape[1] == 0:
+            raise ValueError(f"Audio file {file_name!r} must contain nonempty mono audio")
+        if not bool(torch.isfinite(self.audio).all()):
+            raise ValueError(f"Audio file {file_name!r} contains non-finite samples")
         self.n_frames = self.audio.shape[1]
         self.transform_pipeline = self.preprocessing
         self.t_subseq = T.PaddedSubsequenceSampler(
@@ -829,9 +838,13 @@ class StridedAudioDataset(torch.utils.data.Dataset):
         )
 
     def __len__(self) -> int:
-        return max(int(ceil((self.n_frames + 1 - self.sequence_len) / self.hop)), 1)
+        # Keep the first tail start whose window reaches the final sample.
+        remaining = max(self.n_frames - self.sequence_len, 0)
+        return 1 + (remaining + self.hop - 1) // self.hop
 
     def __getitem__(self, idx: int) -> torch.Tensor:
+        if not isinstance(idx, int) or idx < 0 or idx >= len(self):
+            raise IndexError(idx)
         start = idx * self.hop
         end = min(start + self.sequence_len, self.n_frames)
         y = self.audio[:, start:end]

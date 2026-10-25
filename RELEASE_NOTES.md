@@ -11,6 +11,7 @@ This is the **ongoing** change log for `bioacoustics-dl-toolbox`. The repository
 - **SPEC-03:** Added an explicit classification task contract for binary, multiclass, and multilabel learning while preserving legacy two-logit binary models.
 - **SPEC-04:** Added multi-hot audio labels and BCE-with-logits training/validation support for simultaneous bioacoustic classes.
 - **SPEC-05:** Added independent sigmoid/threshold multi-label predictions with per-class counts and micro/macro precision, recall, and F1 metrics.
+- **SPEC-06:** Added a reusable, headless sliding-window predictor with class-named probabilities, task-aware predictions, and recording-relative timestamps.
 
 ### Changed
 
@@ -43,7 +44,6 @@ The following are proposals, **not released changes**. Each workstream provides 
 
 | Spec | Planned work |
 | --- | --- |
-| [06](specs/0.2/06-predictor.md) | Reusable sliding-window prediction API |
 | [07](specs/0.2/07-checkpoint-metadata.md) | Versioned optional task and inference metadata with legacy loading |
 | [08](specs/0.2/08-binary-class-mapping.md) | Strict, unambiguous binary label mapping |
 | [09](specs/0.2/09-unit-test-policy.md) | Broader focused **unit-test-only** coverage |

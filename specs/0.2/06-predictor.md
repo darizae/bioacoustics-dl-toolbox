@@ -1,6 +1,6 @@
 # SPEC-06 — Reusable sliding-window prediction API
 
-**Status:** Planned · **Priority:** P2 · **Dependencies:** SPEC-02, SPEC-03, SPEC-05, SPEC-07 · **Target:** v0.2.0
+**Status:** Implemented (unit tests: `tests/test_predictor.py`; delivered as a Git patch for review and commit) · **Priority:** P2 · **Dependencies:** SPEC-02, SPEC-03, SPEC-05, SPEC-07 · **Target:** v0.2.0
 
 ## Problem / evidence
 
@@ -45,11 +45,11 @@ File: `tests/test_predictor.py`; use a **fake dataset or monkeypatched audio loa
 
 ## Acceptance criteria
 
-- [ ] Headless library predictor with documented public import path.
-- [ ] Deterministic feature path, window geometry, ordering, and named probabilities.
-- [ ] Correct exclusive versus multilabel decisions with no weight updates.
-- [ ] Legacy checkpoint users get an actionable missing-metadata error.
-- [ ] Only **unit tests** added; no real-file end-to-end predictions.
+- [x] Headless library predictor with documented public import path.
+- [x] Deterministic feature path, window geometry, ordering, and named probabilities.
+- [x] Correct exclusive versus multilabel decisions with no weight updates.
+- [x] Legacy checkpoint users get an actionable missing-metadata error.
+- [x] Only **unit tests** added; no real-file end-to-end predictions.
 
 ## Documentation and release notes
 

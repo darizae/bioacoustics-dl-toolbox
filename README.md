@@ -111,9 +111,9 @@ scores_and_counts = metric.compute()  # class-index-ordered per_class breakdown
 
 Single-label ROC/confusion and per-sample class-image summaries remain disabled
 for multi-label tasks; metrics with `supports_multilabel = True` can opt in.
-The standalone sliding-window predictor and checkpoint threshold metadata are
-separate planned workstreams (SPEC-06 and SPEC-07), not yet shipped.
-Binary positive-class mapping is addressed separately in SPEC-08.
+The standalone sliding-window predictor is described below (SPEC-06).
+Checkpoint threshold metadata remains planned (SPEC-07); binary positive-class
+mapping is addressed separately in SPEC-08.
 
 ## Prediction (preprocessing)
 
@@ -146,6 +146,45 @@ are symmetrically zero-padded **after** normalization; non-augmented training
 center-crops longer feature sequences. Inference applies the same frame-padding
 convention to incomplete tail windows. The cached `.spec` files contain only
 pre-compression power spectrograms, so the existing cache format is unchanged.
+
+## Prediction
+
+`predict_windows` is a headless, reusable sliding-window API. It uses the same
+mono/resampled deterministic preprocessing as training; single-label tasks use
+softmax and one `argmax` label, and multilabel tasks use independent sigmoid
+scores and validated, inclusive thresholds. Results are `WindowPrediction`
+records with `index`, half-open `start_sample`/`end_sample`, recording-relative
+`start_seconds`/`end_seconds`, and class-index-ordered `probabilities` and
+`predicted_labels`. The final overlapping window is included and its end is
+clamped to the resampled recording duration. Events are **not** merged.
+
+```python
+from bioacoustics_dl_toolbox import NormalizationConfig, SpectrogramConfig, TaskConfig
+from bioacoustics_dl_toolbox.prediction import predict_windows
+
+results = predict_windows(
+    model,  # any torch.nn.Module returning raw [B, C] logits
+    "recording.wav",
+    class_to_index={"bird": 0, "frog": 1},
+    task_config=TaskConfig(task_type="multilabel"),
+    spec_config=SpectrogramConfig(),
+    norm_config=NormalizationConfig(),
+    window_samples=44100,
+    hop_samples=22050,
+    thresholds={"bird": 0.55, "frog": 0.7},  # optional; default is 0.5
+    batch_size=16,
+    device="cpu",  # optional; otherwise keep the module's existing device
+)
+```
+
+The first argument may instead be a saved `trained_model.pt` **path** or loaded
+bundle. The six-key legacy format supplies spectrogram settings and class indices
+but **not** normalization, task type, window length, or inference hop; supply
+`norm_config`, `task_config`, `window_samples`, and `hop_samples` explicitly.
+Versioned v2 checkpoint inference metadata, when present, can fill these fields.
+The previous model training/evaluation state is restored after prediction;
+passing `device` moves the model to that device and leaves it there. This is a
+library API, not a CLI, and does not require visualization dependencies.
 
 ## Lossless PCM WAV segments
 
