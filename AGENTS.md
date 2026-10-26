@@ -9,3 +9,11 @@
 - Run `python -m pytest` and `python -m ruff check src tests` before pushing.
 - This project is GPL-3.0-only because it contains adapted ANIMAL-SPOT code.
 
+## README conventions
+
+- Lead with the user-facing purpose, Spectral Grid branding, capabilities, installation, and roadmap; keep technical and development details later in the document.
+- Keep the README useful to users, not agents: avoid onboarding instructions, internal workstream process, and implementation-level detail in the opening narrative.
+- Keep commands, examples, and feature claims accurate for the current public API; planned or unreleased work must be labeled as such.
+- Use relative links and descriptive alt text for repository assets. Keep branding files under `assets/branding/` and preserve license/attribution links.
+- Keep detailed release, specification, and maintenance guidance in their canonical documents and link to them rather than duplicating it.
+
