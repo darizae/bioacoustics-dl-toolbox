@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bioacoustics-dl-toolbox"
-version = "0.1.1"
+version = "0.2.0"
 description = "Reusable PyTorch components for bioacoustic classification"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -31,6 +31,7 @@ packages = ["src/bioacoustics_dl_toolbox"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 100

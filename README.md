@@ -115,8 +115,7 @@ by `Trainer` are separate from exported model files.
 
 ## Roadmap
 
-The next planned release is **v0.2.0**. Its focus is a dependable, task-aware
-library for real bioacoustic experiments:
+Version **0.2.0** establishes the task-aware library foundation:
 
 - reliable CSV splitting and shared training/inference preprocessing;
 - explicit task contracts and multilabel datasets, training, metrics, and
@@ -125,10 +124,10 @@ library for real bioacoustic experiments:
   export;
 - reproducible checkpoint metadata and safer binary class mappings.
 
-The detailed workstream plan is in [`0.2_VERSION.md`](0.2_VERSION.md), while
-[`RELEASE_NOTES.md`](RELEASE_NOTES.md) records what is complete in the current
-working copy. The release is not considered shipped until the version and
-release notes are updated accordingly.
+Near-term work will focus on hardening these public APIs, improving performance
+and documentation, and adding scientifically validated capabilities as they are
+ready. [`RELEASE_NOTES.md`](RELEASE_NOTES.md) is the source of truth for shipped
+changes; planned work is not presented as available functionality.
 
 ## Development
 
@@ -147,9 +146,9 @@ python -m ruff check src tests
 python -m ruff format --check src tests
 ```
 
-For v0.2.0, tests are deterministic CPU-based unit tests only; do not add
-integration, end-to-end, GPU, network, or real-recording tests. Detailed
-implementation guidance lives in [`specs/0.2/`](specs/0.2/).
+The suite uses deterministic CPU-based unit tests and does not require a GPU,
+network access, or real recordings. Maintainer release steps are documented in
+[`docs/RELEASING.md`](docs/RELEASING.md).
 
 ## License and attribution
 

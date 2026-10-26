@@ -117,9 +117,7 @@ def test_merge_stays_separate_across_gaps_and_works_out_of_order():
 
 def test_clamp_explicit_recording_end_and_validate_begin_bound():
     prediction = window(7500, 9000, ["bird"])
-    rows = predictions_to_raven_rows(
-        [prediction], SAMPLE_RATE, recording_duration_seconds=1.0
-    )
+    rows = predictions_to_raven_rows([prediction], SAMPLE_RATE, recording_duration_seconds=1.0)
     assert rows[0]["Begin Time (s)"] == "0.9375"
     assert rows[0]["End Time (s)"] == "1"
     with pytest.raises(ValueError, match="outside recording_duration_seconds"):
@@ -170,7 +168,9 @@ def test_explicit_frequency_bounds_and_channel_do_not_use_model_cutoffs():
         high_freq_hz=3200.5,
     )[0]
     assert (row["Channel"], row["Low Freq (Hz)"], row["High Freq (Hz)"]) == (
-        "2", "200.125", "3200.5"
+        "2",
+        "200.125",
+        "3200.5",
     )
 
 
