@@ -1,7 +1,5 @@
 """
 Model utility functions.
-
-Ported from ANIMAL-SPOT ``models/utils.py`` (Bergler & Schroeter, GPL-3.0).
 """
 
 from __future__ import annotations

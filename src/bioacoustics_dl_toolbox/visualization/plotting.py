@@ -1,7 +1,5 @@
 """
 Plotting utilities for ROC curves, confusion matrices, and spectrograms.
-
-Ported from ANIMAL-SPOT ``utils/summary.py`` (Bergler & Schroeter, GPL-3.0).
 """
 
 from __future__ import annotations

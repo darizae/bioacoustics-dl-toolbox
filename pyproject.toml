@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bioacoustics-dl-toolbox"
-version = "0.1.1"
+version = "0.2.0"
 description = "Reusable PyTorch components for bioacoustic classification"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -25,13 +25,13 @@ test = ["pytest>=8.4,<10", "ruff>=0.14,<1"]
 
 [project.urls]
 Repository = "https://github.com/darizae/bioacoustics-dl-toolbox"
-"Upstream research" = "https://github.com/ChristianBergler/ANIMAL-SPOT"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bioacoustics_dl_toolbox"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 100

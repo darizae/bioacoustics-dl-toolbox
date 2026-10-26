@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="220" viewBox="0 0 900 220">
+      <rect x="0" y="0" width="900" height="220" fill="none"/>
+      <rect x="20" y="30" width="160" height="160" rx="30" fill="#F5FAFF"/>
+      <g transform="translate(20 30)">
+  <path d="M44 34 H29 V126 H44 M116 34 H131 V126 H116" stroke="#102235" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="48" y="80" width="10" height="22" rx="3.5" fill="#1DA1FF"/>
+  <rect x="62" y="57" width="10" height="68" rx="3.5" fill="#0A6FD1"/>
+  <rect x="76" y="40" width="10" height="100" rx="3.5" fill="#102235"/>
+  <rect x="90" y="66" width="10" height="52" rx="3.5" fill="#1DA1FF"/>
+  <rect x="104" y="74" width="10" height="34" rx="3.5" fill="#0A6FD1"/>
+</g>
+      <text x="215" y="104" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="42" font-weight="700" fill="#F5FAFF" letter-spacing="0.2">bioacoustics</text>
+      <text x="216" y="145" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="29" font-weight="700" fill="#1DA1FF">dl</text>
+      <text x="252" y="145" font-family="Inter, DejaVu Sans, Arial, sans-serif" font-size="29" font-weight="500" fill="#F5FAFF" letter-spacing="0.5">toolbox</text>
+    </svg>

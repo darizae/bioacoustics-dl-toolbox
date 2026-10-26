@@ -18,6 +18,11 @@ from bioacoustics_dl_toolbox.metrics.core import (
     TrueNegatives,
     TruePositives,
 )
+from bioacoustics_dl_toolbox.metrics.multilabel import (
+    MultiLabelMetrics,
+    multilabel_probabilities,
+    threshold_multilabel,
+)
 
 __all__ = [
     "Accuracy",
@@ -30,10 +35,13 @@ __all__ = [
     "Max",
     "Mean",
     "MetricBase",
+    "MultiLabelMetrics",
     "Precision",
     "Recall",
     "Sum",
     "TPR",
     "TrueNegatives",
     "TruePositives",
+    "multilabel_probabilities",
+    "threshold_multilabel",
 ]

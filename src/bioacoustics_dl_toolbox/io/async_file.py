@@ -1,7 +1,6 @@
 """
 Asynchronous file reader and writer using multiprocessing.
 
-Ported from ANIMAL-SPOT ``utils/FileIO.py`` (Bergler & Schroeter, GPL-3.0).
 Platform note: multiprocessing workers are only started on Linux; on other
 platforms the reader/writer falls back to synchronous I/O.
 """

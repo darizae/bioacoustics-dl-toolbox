@@ -1,8 +1,5 @@
 """
 Spectrogram-to-image conversion utilities.
-
-Ported from ANIMAL-SPOT ``visualization/utils.py`` and ``utils/summary.py``
-(Bergler & Schroeter, GPL-3.0).
 """
 
 from __future__ import annotations

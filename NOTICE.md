@@ -1,8 +1,8 @@
 # Attribution
 
 This package was separated from `alpaca-pipelines`, preserving its package history.
-Files whose module docstrings say "Ported from ANIMAL-SPOT" are adapted from the
-GPL-3.0 project by Christian Bergler and contributors:
+Some implementation files contain adapted material from the GPL-3.0 project by
+Christian Bergler and contributors:
 
 - Source: https://github.com/ChristianBergler/ANIMAL-SPOT
 - Inspected upstream revision: `fee8b4ba789947a40b89c03eb6fc61e351115e90`
