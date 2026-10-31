@@ -386,8 +386,8 @@ class RandomAddNoise:
     """Add random noise from a bank of noise files at a random SNR.
 
     The noise spectrogram is computed on the fly, optionally augmented,
-    then mixed with the input at a random SNR between ``max_snr`` and
-    ``min_snr`` dB.
+    then mixed with the input at a random SNR from ``min_snr`` (inclusive)
+    to ``max_snr`` (exclusive) in dB.
     """
 
     def __init__(
@@ -396,20 +396,22 @@ class RandomAddNoise:
         spectrogram_transform: Callable[..., torch.Tensor],
         transform: Callable[[torch.Tensor], torch.Tensor],
         min_length: int = 0,
-        min_snr: int = 12,
-        max_snr: int = -3,
+        min_snr: int = -3,
+        max_snr: int = 12,
         return_original: bool = False,
     ) -> None:
         if not noise_files:
             raise ValueError("No noise files found")
+        if min_snr >= max_snr:
+            raise ValueError("minimum SNR must be lower than maximum SNR")
         self.noise_files = noise_files
         self.spectrogram_transform = spectrogram_transform
         self.noise_file_locks = {file: Lock() for file in noise_files}
         self.transform = transform
         self.min_length = min_length
         self.pad_sampler = PaddedSubsequenceSampler(sequence_length=min_length, dim=1)
-        self.min_snr = min_snr if min_snr > max_snr else max_snr
-        self.max_snr = max_snr if min_snr > max_snr else min_snr
+        self.min_snr = min_snr
+        self.max_snr = max_snr
         self.return_original = return_original
 
     def __call__(
@@ -453,7 +455,7 @@ class RandomAddNoise:
         else:
             noise_spec_part = noise_spec
 
-        snr = torch.randint(self.max_snr, self.min_snr, size=(1,), dtype=torch.float)
+        snr = torch.randint(self.min_snr, self.max_snr, size=(1,), dtype=torch.float)
         signal_power = spectrogram.sum()
         noise_power = noise_spec_part.sum()
         gain = (signal_power / noise_power) * 10 ** (-snr / 10)

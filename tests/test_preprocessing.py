@@ -152,6 +152,36 @@ def test_mfcc_never_instantiates_or_calls_amp2db(monkeypatch):
     assert torch.isfinite(prep.representation(torch.zeros((1, 2, 48)))).all()
 
 
+def test_noise_snr_contract_uses_numerical_minimum_and_maximum(monkeypatch):
+    config = AugmentationConfig()
+    assert (config.noise_min_snr, config.noise_max_snr) == (-3, 12)
+
+    sampled_bounds = []
+
+    def sample_snr(low, high, *, size, dtype):
+        sampled_bounds.append((low, high, size, dtype))
+        return torch.tensor([0.0])
+
+    monkeypatch.setattr(T.torch, "randint", sample_snr)
+    transform = T.RandomAddNoise(
+        ["noise.wav"],
+        spectrogram_transform=lambda _path: torch.ones((1, 2, 3)),
+        transform=lambda value: value,
+    )
+    transformed = transform(torch.ones((1, 2, 3)))
+
+    assert sampled_bounds == [(-3, 12, (1,), torch.float)]
+    assert transformed.shape == (1, 2, 3)
+    with pytest.raises(ValueError, match="minimum SNR must be lower"):
+        T.RandomAddNoise(
+            ["noise.wav"],
+            spectrogram_transform=lambda _path: torch.ones((1, 2, 3)),
+            transform=lambda value: value,
+            min_snr=12,
+            max_snr=-3,
+        )
+
+
 @pytest.mark.parametrize("compression", ["linear", "mel"])
 def test_linear_and_mel_still_apply_amp2db(monkeypatch, compression):
     calls = []

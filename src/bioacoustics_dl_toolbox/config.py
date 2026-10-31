@@ -50,8 +50,8 @@ class AugmentationConfig:
     pitch_shift_from: float = 0.5
     pitch_shift_to: float = 1.5
     noise_files: list[str] = field(default_factory=list)
-    noise_min_snr: int = 12
-    noise_max_snr: int = -3
+    noise_min_snr: int = -3
+    noise_max_snr: int = 12
 
 
 @dataclass(frozen=True)
