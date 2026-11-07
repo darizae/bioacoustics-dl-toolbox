@@ -87,27 +87,42 @@ def test_unpadded_tail_short_window_and_dc_policy():
     ("rate", "kind", "palette", "band", "rgb_sha", "db_sha"),
     [
         (
-            8000, "tone", "magma", (200, 3000),
+            8000,
+            "tone",
+            "magma",
+            (200, 3000),
             "c09108f2e44f497711d0a2a5d11a0bc9db568a33a9796b6d883bdcdbd239ef6a",
             "ac7e73f32d559c6a16efcfa4e2e4a08d7b815519e2751a36a74e81b3e715771c",
         ),
         (
-            16000, "chirp", "viridis", (300, 4200),
+            16000,
+            "chirp",
+            "viridis",
+            (300, 4200),
             "7ffa8095a31e7e5037d449fca63494cee2c3472382b6b21b4c8a6ffb021c7b6b",
             "702f0567390b2b94ff79862ef3c6bcac1f298840405950c6a389a443c7e5595d",
         ),
         (
-            48000, "silence", "magma", (0, 4200),
+            48000,
+            "silence",
+            "magma",
+            (0, 4200),
             "4f05a3c0831f10f62fc845217d8880b353e16f7391f4175269c51303d274b8e9",
             "03823a371c979053927f16f73ddb6ff94cffc5fda443f6c7b040d7127215e15f",
         ),
         (
-            1000, "short", "viridis", (0, 500),
+            1000,
+            "short",
+            "viridis",
+            (0, 500),
             "cd1ae95d96c2d73aa7bc061b30b48bc3ad7346e7c94b0bb046efef87de08cd70",
             "5063f8cc6f4d9925f6bd98815e46f5a395fa868a40d053fc170b8832a0a74bfa",
         ),
         (
-            8000, "stereo", "viridis", (500, 3500),
+            8000,
+            "stereo",
+            "viridis",
+            (500, 3500),
             "6d82136c750beeb406ac716214243cc7c9b90b54cbaaceb86bb56a77c2880f09",
             "88f0bdda8525c51848e8934e234761633d8dc2ecb5e62d8384584f674b31dbf2",
         ),
@@ -165,9 +180,7 @@ def test_review_v1_pixel_and_db_parity(rate, kind, palette, band, rgb_sha, db_sh
 def test_frequency_crop_edges_nyquist_and_band_peak_reference():
     rate = 8_000
     t = np.arange(128) / rate
-    audio = (
-        0.1 * np.sin(2 * np.pi * 1_000 * t) + 1.0 * np.sin(2 * np.pi * 3_000 * t)
-    )[None, :]
+    audio = (0.1 * np.sin(2 * np.pi * 1_000 * t) + 1.0 * np.sin(2 * np.pi * 3_000 * t))[None, :]
     spectrum = calculate_stft_power(
         audio, sample_rate_hz=rate, window_samples=32, hop_samples=16, source_start_frame=19
     )
@@ -175,7 +188,12 @@ def test_frequency_crop_edges_nyquist_and_band_peak_reference():
         spectrum, width=12, height=6, frequency_min_hz=750, frequency_max_hz=1250, palette="magma"
     )
     high = rasterize_spectrogram(
-        spectrum, width=12, height=6, frequency_min_hz=2750, frequency_max_hz=3250, palette="viridis"
+        spectrum,
+        width=12,
+        height=6,
+        frequency_min_hz=2750,
+        frequency_max_hz=3250,
+        palette="viridis",
     )
     assert low.frequency_centers_hz == (750.0, 1000.0, 1250.0)
     assert low.frequency_edges_hz == (750.0, 875.0, 1125.0, 1250.0)
@@ -190,9 +208,7 @@ def test_frequency_crop_edges_nyquist_and_band_peak_reference():
         low.pixel_edge_frame(13)
     with pytest.raises(ValueError, match="pixel boundary"):
         low.pixel_edge_frequency_hz(-1)
-    clamped = rasterize_spectrogram(
-        spectrum, width=4, height=4, frequency_max_hz=99_999
-    )
+    clamped = rasterize_spectrogram(spectrum, width=4, height=4, frequency_max_hz=99_999)
     assert clamped.frequency_max_hz == 4_000
     assert clamped.frequency_edges_hz[-1] == 4_000
 
