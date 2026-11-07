@@ -28,10 +28,12 @@ Requires **Python 3.11–3.13**. Clone this repository and install from its root
 python -m pip install -e .
 ```
 
-The latest [published GitHub release](https://github.com/darizae/bioacoustics-dl-toolbox/releases/tag/v0.2.0)
-is **v0.2.0**. The NumPy inspection API demonstrated below is present on
-`main` **after** that release and is not part of the v0.2.0 artifacts. This
-project distributes releases through GitHub, not PyPI.
+Find published wheels and source distributions on
+[GitHub Releases](https://github.com/darizae/bioacoustics-dl-toolbox/releases);
+this project does **not** publish to PyPI. `main` may contain changes not yet
+released. The NumPy inspection API demonstrated below first ships with
+`v0.3.0`; verify that the tagged GitHub Release and its wheel actually
+exist before depending on it, rather than using a sibling or editable checkout.
 
 Optional features can be installed independently:
 
