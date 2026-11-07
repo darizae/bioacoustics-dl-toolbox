@@ -7,6 +7,52 @@ This is the ongoing change log for `bioacoustics-dl-toolbox`. See
 
 _No changes yet._
 
+## 0.3.0 — 2026-11-07
+
+### Added
+
+- Added a public NumPy-only headless inspection-spectrogram API:
+  `visualization.spectrogram.calculate_stft_power` and
+  `rasterize_spectrogram`. It computes channel-averaged STFT power and
+  relative-dB RGB rasters with explicit source-frame, time, and frequency
+  coordinates, plus deterministic `magma` and `viridis` palettes. This
+  inspection API does not require optional `[visualization]` dependencies.
+- Added deterministic CPU regression fixtures for tone, chirp, stereo,
+  silence, short recordings, and representative BioCall Studio v1 RGB /
+  float32 spectrogram outputs at multiple sample rates.
+- Added a headless API guide and a researcher-oriented Spectral Grid README
+  with executable inspection and model-feature examples.
+
+### Changed
+
+- Made historical `visualization` exports lazy: legacy plotting and image
+  helpers retain their names, without importing Matplotlib, Pillow or
+  TorchVision merely to use the NumPy-only spectrogram module.
+- Added CI for the ordinary toolbox unit suite, Ruff lint/format, README
+  examples and installed-wheel headless imports; release builds also
+  inspect the sdist/wheel and record artifact hashes.
+
+### Fixed
+
+- Corrected `RandomAddNoise` minimum/maximum SNR defaults and sampling
+  order. Reversed custom SNR limits now raise an explicit `ValueError`.
+
+### Compatibility and migration notes
+
+- The new inspection spectrogram is a **display** representation, not a
+  drop-in replacement for `FeaturePreprocessor` or the PyTorch
+  training/inference spectrogram. Do not feed its relative-dB/RGB outputs
+  into existing trained classifiers.
+- Model-input feature configuration, the default six-key
+  `trained_model.pt` export contract, optional metadata handling,
+  random-forest feature extraction, and cached power-spectrogram version
+  are unchanged. The corrected noise SNR bounds affect training
+  augmentation if enabled, not checkpoint formats.
+- Callers supplying custom `RandomAddNoise(min_snr=..., max_snr=...)`
+  with descending endpoints must reorder them to `min_snr < max_snr`.
+- The new API is included only in release artifacts starting at
+  `v0.3.0`; it is not in the existing `v0.2.0` wheel.
+
 ## 0.2.0 — 2026-10-26
 
 ### Added
