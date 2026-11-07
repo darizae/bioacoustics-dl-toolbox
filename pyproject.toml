@@ -4,11 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bioacoustics-dl-toolbox"
-version = "0.2.0"
+version = "0.3.0"
 description = "Reusable PyTorch components for bioacoustic classification"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 license = "GPL-3.0-only"
+license-files = ["LICENSE", "NOTICE.md"]
 dependencies = [
   "numpy>=1.26,<3",
   "resampy>=0.4,<1",
