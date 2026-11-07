@@ -1,0 +1,29 @@
+name: Validate
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  unit-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install base package and test tools
+        run: python -m pip install -e '.[test]'
+      - name: Unit tests
+        run: python -m pytest
+      - name: Ruff lint
+        run: python -m ruff check src tests
+      - name: Ruff formatting
+        run: python -m ruff format --check src tests
+      - name: Headless installed wheel smoke test
+        run: |
+          python -m pip install build
+          python -m build
+          python -m venv /tmp/toolbox-wheel-check
+          /tmp/toolbox-wheel-check/bin/python -m pip install dist/*.whl
+          /tmp/toolbox-wheel-check/bin/python -c "from bioacoustics_dl_toolbox.visualization.spectrogram import calculate_stft_power, rasterize_spectrogram; print(calculate_stft_power, rasterize_spectrogram)"
