@@ -29,3 +29,7 @@ Avoid “whole module” transplant, preset/settings/session serialization, cand
 5. Execute `python -m pytest`, `python -m ruff check src tests`, `python -m ruff format --check src tests`; report actual commands/results. No app-specific Qt tests in this repo.
 
 **Acceptance:** a public import in a clean wheel without optional visualization extras; deterministic typed pixel + axis outputs; parity (or explicit versioned mismatch explanation) against Review's current reference; unchanged `FeaturePreprocessor`, `Spectrogram`, `trained_model.pt`, and no Studio or Qt dependency. One focused implementation PR, no auto-tag.
+
+## Branch and integration handoff
+
+Follow [VERSION_CONTROL.md](VERSION_CONTROL.md). Once planning PR #2 has merged into `main`, branch `feat/toolbox-01-headless-spectrogram` from the latest `main`. Run the deterministic toolbox unit suite and focused import/numerical tests, review the implementation PR, then merge to toolbox `main` **before** T2. Report the merged SHA and public API for the documentation stage. If no extraction is justified, record that decision and revisit the proposed release version instead of adding speculative code. No tag or app-level full suite here.
