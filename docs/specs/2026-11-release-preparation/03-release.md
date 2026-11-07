@@ -13,3 +13,7 @@
 ## Gate
 
 **BioCall Studio integration spec 01 does not complete before this toolbox release exists.** Documentation work in `alp-ui` may run in parallel; the **one final Studio suite** runs later in BioCall Studio after both libraries have released. No macOS/Windows native work or long-running test required here.
+
+## Branch, main sync and immutable released wheel
+
+Follow [VERSION_CONTROL.md](VERSION_CONTROL.md). Create `release/toolbox-v0.3.0` from the reviewed **post-T2 `main`**, update `pyproject.toml` version and `RELEASE_NOTES.md`, and **merge this release-preparation PR to `main` first**. Only then freeze `TOOLBOX_RELEASE_SHA = main HEAD`, run toolbox unit/Ruff/build/import tests on that exact SHA, and prepare the wheel/sdist digests. With owner approval, create the annotated **`v0.3.0`** tag at that same merged-`main` commit and publish those exact artifacts on GitHub. If a fix changes main SHA, rerun owning tests/build/hash before tagging. Handoff immutable tag target SHA and public release artifact hashes to BioCall Studio 01; do not run the full Studio suite here.
