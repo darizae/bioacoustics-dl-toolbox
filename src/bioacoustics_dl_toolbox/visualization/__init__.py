@@ -1,17 +1,11 @@
-"""Visualization utilities: colormaps, spectrogram rendering, plot helpers."""
+"""Visualization namespace with lazy legacy plotting dependencies."""
 
-from bioacoustics_dl_toolbox.visualization.colormaps import (
-    apply_cm,
-    plasma_cm,
-    viridis_cm,
-)
-from bioacoustics_dl_toolbox.visualization.image import flip, prepare_img, spec2img
-from bioacoustics_dl_toolbox.visualization.plotting import (
-    confusion_matrix_fig,
-    plot_spectrogram,
-    roc_fig,
-)
+from __future__ import annotations
 
+from importlib import import_module
+
+# Preserve existing public imports without loading optional visualization
+# extras when importing the NumPy-only spectrogram submodule.
 __all__ = [
     "apply_cm",
     "confusion_matrix_fig",
@@ -23,3 +17,27 @@ __all__ = [
     "spec2img",
     "viridis_cm",
 ]
+
+_LEGACY_MODULES = {
+    "apply_cm": "colormaps",
+    "plasma_cm": "colormaps",
+    "viridis_cm": "colormaps",
+    "flip": "image",
+    "prepare_img": "image",
+    "spec2img": "image",
+    "confusion_matrix_fig": "plotting",
+    "plot_spectrogram": "plotting",
+    "roc_fig": "plotting",
+}
+
+
+def __getattr__(name: str) -> object:
+    if name not in _LEGACY_MODULES:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(import_module(f".{_LEGACY_MODULES[name]}", __name__), name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))
