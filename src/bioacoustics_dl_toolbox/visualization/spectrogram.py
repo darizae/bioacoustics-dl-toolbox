@@ -119,9 +119,10 @@ class SpectrogramRaster:
         """Absolute source frame at a vertical pixel edge, 0..width."""
         if type(x) is not int or not 0 <= x <= self.width:
             raise ValueError("x must be a pixel boundary within the raster")
-        return self.source_start_frame + x * (
-            self.source_end_frame - self.source_start_frame
-        ) / self.width
+        return (
+            self.source_start_frame
+            + x * (self.source_end_frame - self.source_start_frame) / self.width
+        )
 
     def pixel_edge_time_seconds(self, x: int) -> float:
         return self.pixel_edge_frame(x) / self.sample_rate_hz
@@ -130,9 +131,10 @@ class SpectrogramRaster:
         """Frequency of a horizontal pixel edge, 0 at the top."""
         if type(y) is not int or not 0 <= y <= self.height:
             raise ValueError("y must be a pixel boundary within the raster")
-        return self.frequency_max_hz - y * (
-            self.frequency_max_hz - self.frequency_min_hz
-        ) / self.height
+        return (
+            self.frequency_max_hz
+            - y * (self.frequency_max_hz - self.frequency_min_hz) / self.height
+        )
 
 
 def calculate_stft_power(
@@ -174,9 +176,7 @@ def calculate_stft_power(
         raise ValueError("n_fft must be a power of two covering the effective window")
 
     working = audio - audio.mean(axis=1, keepdims=True) if remove_dc else audio
-    starts = np.arange(
-        0, working.shape[1] - effective_window + 1, hop_samples, dtype=np.int64
-    )
+    starts = np.arange(0, working.shape[1] - effective_window + 1, hop_samples, dtype=np.int64)
     if effective_window < 3:
         window = np.ones(effective_window, dtype=np.float64)
     else:
@@ -259,7 +259,11 @@ def rasterize_spectrogram(
     upper = min(float(frequency_max_hz), spectral.sample_rate_hz / 2)
     if lower < 0 or lower >= upper:
         raise ValueError("frequency limits must form a nonempty range within Nyquist")
-    if not isinstance(contrast_db, (int, float)) or not math.isfinite(contrast_db) or contrast_db <= 0:
+    if (
+        not isinstance(contrast_db, (int, float))
+        or not math.isfinite(contrast_db)
+        or contrast_db <= 0
+    ):
         raise ValueError("contrast_db must be positive and finite")
     if not isinstance(palette, str) or palette not in _PALETTE_STOPS:
         raise ValueError("palette must be 'magma' or 'viridis'")
@@ -274,9 +278,11 @@ def rasterize_spectrogram(
         upper=upper,
         bin_width=spectral.sample_rate_hz / spectral.n_fft,
     )
-    target_frames = (np.arange(width, dtype=np.float64) + 0.5) * (
-        spectral.source_end_frame - spectral.source_start_frame
-    ) / width
+    target_frames = (
+        (np.arange(width, dtype=np.float64) + 0.5)
+        * (spectral.source_end_frame - spectral.source_start_frame)
+        / width
+    )
     frame_centers = np.asarray(spectral.frame_centers_x2, dtype=np.float64) / 2
     frame_centers -= spectral.source_start_frame
     time_resampled = np.empty((power.shape[0], width), dtype=np.float64)
