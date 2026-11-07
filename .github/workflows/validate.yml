@@ -16,6 +16,19 @@ jobs:
         run: python -m pip install -e '.[test]'
       - name: Unit tests
         run: python -m pytest
+      - name: Execute README Python examples
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          readme = Path("README.md").read_text(encoding="utf-8")
+          examples = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
+          assert len(examples) == 2, "Expected the inspection and model-input examples"
+          for index, source in enumerate(examples, start=1):
+              exec(compile(source, f"README.md example {index}", "exec"), {"__name__": "__main__"})
+          print(f"Executed {len(examples)} README Python examples")
+          PY
       - name: Ruff lint
         run: python -m ruff check src tests
       - name: Ruff formatting
