@@ -1,144 +1,165 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/branding/png/lockup-inverse.png">
-    <img src="assets/branding/png/lockup.png" alt="Bioacoustics DL Toolbox" width="640">
+    <img src="assets/branding/png/lockup.png" alt="Spectral Grid lockup for Bioacoustics DL Toolbox" width="560">
   </picture>
 </p>
 
-<p align="center"><strong>Practical deep-learning building blocks for turning environmental sound into reproducible predictions.</strong></p>
+# Bioacoustics DL Toolbox
 
-Bioacoustics DL Toolbox is a standalone Python/PyTorch library for bioacoustic
-machine learning. It brings audio preprocessing, spectrogram datasets,
-classifiers, metrics, training utilities, checkpointing, and sliding-window
-prediction into one reusable package.
+[![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 
-It is designed for researchers and engineers who need the core modeling tools
-without taking on a desktop application, workflow manager, database, or user
-interface.
+**From environmental recordings to reproducible bioacoustic predictions.** A
+headless Python/PyTorch library for researchers and developers who need audio
+features, classifiers, training, evaluation, and recording-wide inference
+without a desktop app, database, or workflow server.
 
-## What you can do
-
-- Prepare consistent linear, mel, or MFCC features from audio recordings.
-- Train binary, multiclass, or explicitly configured multilabel classifiers.
-- Evaluate predictions with standard and multilabel metrics.
-- Run reproducible sliding-window inference over complete recordings.
-- Export predictions as Raven-compatible selection tables when needed.
-- Save model weights with the established `trained_model.pt` format and
-  optional metadata for reproducible inference.
+The core workflow is **audio → model-input spectral features → train and
+evaluate → sliding-window class predictions → optional Raven selection table**.
+It supports binary, multiclass, and explicitly configured multilabel tasks;
+window predictions have timestamps and probabilities, but are not automatically
+merged into biological events.
 
 ## Install
 
-The supported Python versions are 3.11–3.13. From a checkout of this
-repository:
+Requires **Python 3.11–3.13**. Clone this repository and install from its root:
 
 ```bash
 python -m pip install -e .
 ```
 
-Install optional random-forest features with:
+The latest [published GitHub release](https://github.com/darizae/bioacoustics-dl-toolbox/releases/tag/v0.2.0)
+is **v0.2.0**. The NumPy inspection API demonstrated below is present on
+`main` **after** that release and is not part of the v0.2.0 artifacts. This
+project distributes releases through GitHub, not PyPI.
+
+Optional features can be installed independently:
 
 ```bash
-python -m pip install -e '.[rf]'
+python -m pip install -e '.[rf]'             # librosa-based random-forest features
+python -m pip install -e '.[visualization]'  # legacy plotting/image helpers
+python -m pip install -e '.[summaries]'      # TensorBoard summaries
 ```
 
-Install TensorBoard summaries and visualization helpers with:
+The new NumPy inspection renderer needs only base dependencies, **not** the
+`[visualization]` extra.
 
-```bash
-python -m pip install -e '.[summaries,visualization]'
-```
+## Inspect a sound: NumPy spectrogram
 
-For all optional features and the test tools:
-
-```bash
-python -m pip install -e '.[rf,summaries,visualization,test]'
-```
-
-## A typical workflow
-
-1. Configure the sample rate, spectrogram representation, normalization, and
-   classification task.
-2. Build a `SpectrogramDataset` for training and validation.
-3. Create a model from the reusable encoder and classifier components, then
-   train it with `Trainer`.
-4. Use `predict_windows` to apply the trained model to a recording and retain
-   timestamps, probabilities, and labels.
-5. Pass those results to `write_raven_tsv` for optional annotation-table export.
-
-The main public areas are:
-
-| Area | Use it for |
-| --- | --- |
-| `bioacoustics_dl_toolbox.audio` | Audio loading, transforms, datasets, and PCM WAV segments |
-| `bioacoustics_dl_toolbox.models` | Encoders, classifier blocks, and model utilities |
-| `bioacoustics_dl_toolbox.training` | Training loops, checkpoints, and early stopping |
-| `bioacoustics_dl_toolbox.metrics` | Classification and multilabel evaluation |
-| `bioacoustics_dl_toolbox.prediction` | Headless windowed prediction and Raven export |
-| `bioacoustics_dl_toolbox.visualization` | Optional plots and image summaries |
-
-## Classification and prediction
-
-`TaskConfig` makes the learning task explicit. The default `auto` mode keeps
-two-class classification as binary classification with two raw logits and
-uses multiclass behavior for larger class sets. Multilabel classification is
-explicit: use `TaskConfig(task_type="multilabel")` when a recording can carry
-several class labels at once.
-
-Use one validated `class_to_index` mapping for datasets, metrics, prediction,
-and checkpoints. Binary and multiclass predictions use softmax and one
-selected class. Multilabel predictions use independent sigmoid probabilities
-and configurable per-class thresholds; probabilities and decisions remain
-separate.
-
-For training and prediction, use the same `SpectrogramConfig`,
-`NormalizationConfig`, and audio window length. The shared deterministic
-preprocessing path keeps feature representations aligned, including the
-MFCC path, which does not apply a second decibel conversion.
+A synthetic 1 kHz tone makes a small, reproducible inspection example. Input
+samples are **(channels, frames)**, even for mono. The renderer returns raw RGB
+pixels and source coordinates; it does not open a window or create a PNG.
 
 ```python
-from bioacoustics_dl_toolbox import TaskConfig
+import numpy as np
 
-task = TaskConfig(task_type="multilabel")
+from bioacoustics_dl_toolbox.visualization.spectrogram import (
+    calculate_stft_power,
+    rasterize_spectrogram,
+)
+
+sample_rate = 8_000
+time_s = np.arange(sample_rate, dtype=np.float64) / sample_rate
+mono = np.sin(2 * np.pi * 1_000 * time_s)[None, :]  # (1, 8000)
+
+power = calculate_stft_power(
+    mono, sample_rate_hz=sample_rate, window_samples=256, hop_samples=64
+)
+image = rasterize_spectrogram(
+    power,
+    width=320,
+    height=120,
+    frequency_min_hz=200,
+    frequency_max_hz=3_000,
+    contrast_db=50,
+    palette="magma",
+)
+
+assert image.rgb.shape == (120, 320, 3)
+assert image.rgb.dtype == np.uint8
+assert image.pixel_edge_time_seconds(image.width) == 1.0
+print(image.frequency_centers_hz[:3])  # STFT bin coordinates in Hz
 ```
 
-The reusable predictor returns structured window records with class-named
-probabilities, selected labels, sample positions, and recording-relative
-timestamps. It does not merge windows into behavioral events. Raven export is
-an optional downstream adapter, and merging overlapping windows is opt-in.
+The colors show **per-image, band-peak-relative** decibels, not calibrated
+sound pressure. Frequency increases toward the top of the raster. The returned
+`relative_db` array, frequency coordinates, and `pixel_edge_*` methods help
+align displayed sound with a source recording. For exact framing, short clips,
+stereo averaging, color stops, and axis semantics, see the
+[headless spectrogram API guide](docs/HEADLESS_SPECTROGRAM.md).
 
-## Checkpoints
+## Train with a different spectrogram contract
 
-By default, `save_model` writes the established six-key `trained_model.pt`
-payload. A versioned metadata mapping can additionally record task type,
-normalization, window and hop lengths, thresholds, and ordered class names so
-new inference runs can be reproduced more reliably. Resume checkpoints used
-by `Trainer` are separate from exported model files.
+The **model-input** pipeline is deliberately separate from inspection
+rasterization:
 
-## Roadmap
+| Use | Public entry point | Output and purpose |
+| --- | --- | --- |
+| **Training and inference** | `audio.build_feature_preprocessor`, used by `SpectrogramDataset` and the predictor | PyTorch features with configured pre-emphasis, frequency compression (linear, mel, or MFCC), and normalization; layout `(channels, time, frequency)` |
+| **Researcher inspection** | `visualization.spectrogram.calculate_stft_power` and `rasterize_spectrogram` | NumPy spectral power, relative-dB raster, RGB `uint8` image, and explicit source/time/frequency coordinates |
 
-Version **0.2.0** establishes the task-aware library foundation:
+**Do not feed inspection RGB pixels or relative-dB values into a trained
+classifier.** These numerical representations have different windows,
+scaling, frequency processing, and intended consumers. There is no claimed
+equivalence between them.
 
-- reliable CSV splitting and shared training/inference preprocessing;
-- explicit task contracts and multilabel datasets, training, metrics, and
-  thresholds;
-- reusable sliding-window prediction and optional Raven selection-table
-  export;
-- reproducible checkpoint metadata and safer binary class mappings.
+For example, create normalized model features from a synthetic mono waveform
+without touching the inspection renderer:
 
-Near-term work will focus on hardening these public APIs, improving performance
-and documentation, and adding scientifically validated capabilities as they are
-ready. [`RELEASE_NOTES.md`](RELEASE_NOTES.md) is the source of truth for shipped
-changes; planned work is not presented as available functionality.
+```python
+import torch
 
-## Development
+from bioacoustics_dl_toolbox import NormalizationConfig, SpectrogramConfig, TaskConfig
+from bioacoustics_dl_toolbox.audio import build_feature_preprocessor
 
-Development and maintenance checks are intentionally kept below the user
-documentation. Install the test dependencies with:
+spec = SpectrogramConfig(
+    sample_rate=8_000,
+    n_fft=256,
+    hop_length=64,
+    n_freq_bins=64,
+    f_min=200,
+    f_max=3_000,
+    freq_compression="linear",
+)
+mono = torch.sin(2 * torch.pi * 1_000 * torch.arange(8_000) / 8_000).unsqueeze(0)
+features = build_feature_preprocessor(spec, NormalizationConfig())(mono)
 
-```bash
-python -m pip install -e '.[test]'
+assert features.shape[0] == 1 and features.shape[-1] == 64
+task = TaskConfig(task_type="multilabel")  # for recordings with overlapping labels
 ```
 
-Run the unit tests and lint checks with:
+A model must be trained before it can produce meaningful detections. Use a
+`SpectrogramDataset` with a validated `class_to_index` mapping, build an
+encoder and classifier, train with `Trainer`, and call `predict_windows` on
+recordings using the **same** feature configuration and audio window duration.
+Multilabel decisions use independent sigmoid probabilities and thresholds;
+single-label binary/multiclass decisions use softmax. `write_raven_tsv` can
+export timestamped predictions as Raven-compatible selections.
+
+## Public API map
+
+| Module | What it provides |
+| --- | --- |
+| [`audio`](src/bioacoustics_dl_toolbox/audio/) | Audio loading, model features, datasets, and PCM WAV extraction |
+| [`models`](src/bioacoustics_dl_toolbox/models/) | Encoders and classifier components |
+| [`training`](src/bioacoustics_dl_toolbox/training/) | `Trainer`, checkpointing, early stopping |
+| [`metrics`](src/bioacoustics_dl_toolbox/metrics/) | Classification and multilabel metrics |
+| [`prediction`](src/bioacoustics_dl_toolbox/prediction/) | `predict_windows`, `WindowPrediction`, Raven export |
+| [`visualization`](src/bioacoustics_dl_toolbox/visualization/) | Headless inspection raster plus optional plotting utilities |
+
+## Reproducibility and checkpoints
+
+Use a consistent `SpectrogramConfig`, `NormalizationConfig`, recording window
+length, and class ordering for training and inference. `save_model` preserves
+the established six-key `trained_model.pt` payload by default; optional
+versioned metadata records task and preprocessing choices. Trainer resume
+checkpoints are distinct from exported models. See
+[release notes](RELEASE_NOTES.md) for what was actually published, and the
+[release procedure](docs/RELEASING.md) for maintainer steps.
+
+## Contributing and attribution
+
+For local checks, install `python -m pip install -e '.[test]'`, then run:
 
 ```bash
 python -m pytest
@@ -146,17 +167,12 @@ python -m ruff check src tests
 python -m ruff format --check src tests
 ```
 
-The suite uses deterministic CPU-based unit tests and does not require a GPU,
-network access, or real recordings. Maintainer release steps are documented in
-[`docs/RELEASING.md`](docs/RELEASING.md).
+The repository keeps contributor/agent guidance in [`AGENTS.md`](AGENTS.md)
+and original Spectral Grid sources, light/dark artwork, and asset provenance
+in [`assets/branding/`](assets/branding/README.md). Branding previews are
+not GUI or spectrogram screenshots: this is a headless library.
 
-## License and attribution
-
-This project is [GPL-3.0-only](LICENSE). It contains adapted ANIMAL-SPOT
-material and was extracted from
-[`alpaca-pipelines`](https://github.com/darizae/alpaca-pipelines); see
-[`NOTICE.md`](NOTICE.md) for attribution and citation details.
-
-The branding assets are kept in [`assets/branding/`](assets/branding/). The
-bundle includes light and dark lockups, the Spectral Grid mark, application
-icons, and vector source files.
+**License:** [GNU GPL-3.0-only](LICENSE). This project contains adapted
+[ANIMAL-SPOT](https://github.com/ChristianBergler/ANIMAL-SPOT) material and
+originated from [`alpaca-pipelines`](https://github.com/darizae/alpaca-pipelines).
+See [`NOTICE.md`](NOTICE.md) for upstream attribution and the scientific citation.
