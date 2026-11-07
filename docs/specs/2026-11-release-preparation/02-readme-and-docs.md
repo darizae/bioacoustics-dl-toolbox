@@ -17,3 +17,7 @@ There are only a handful of documentation files (`README.md`, `AGENTS.md`, `NOTI
 ## Execution and acceptance
 
 **API/VM:** edit README/docs, verify local image links, command examples, badge links, package metadata and imported API, run scoped documentation checks. **Native:** none. Human-readable landing page, authentic brand, truthful examples and license, compact docs with no broken GitHub paths. Do **not** update release notes to call the new feature shipped before spec 03.
+
+## Branch and integration handoff
+
+Follow [VERSION_CONTROL.md](VERSION_CONTROL.md). Start `docs/toolbox-02-human-readme` from the **post-T1 merged `main`** so its example uses the actual public NumPy API, not anticipated signatures. Keep brand/license/attribution accurate, validate examples and links, open a documentation PR and merge to `main` **before** T3. Record actual merged-`main` SHA; do not publish a README-only version or quietly modify the already released `v0.2.0` tag.
